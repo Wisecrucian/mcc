@@ -230,6 +230,43 @@ final class AppViewModel: ObservableObject {
         }
     }
     
+    // New method for updating hosts with locations
+    func updateHostWithLocations(hostId: UUID, in serviceId: UUID, name: String, hostnameTemplate: String, remotePort: Int, locations: [LocationMapping]) {
+        guard let serviceIndex = services.firstIndex(where: { findServiceContainingHost(hostId, in: $0) != nil }) else { return }
+        
+        var updatedHost = Host(id: hostId, name: name, hostnameTemplate: hostnameTemplate, remotePort: remotePort, locations: locations)
+        
+        updateHostWithLocationsRecursive(updatedHost, in: serviceId, in: &services)
+        saveServices()
+        
+        appLogService.log("Updated host '\(name)' with \(locations.count) datacenter(s)", level: .info)
+    }
+    
+    private func updateHostWithLocationsRecursive(_ host: Host, in serviceId: UUID, in services: inout [Service]) {
+        for index in services.indices {
+            if services[index].id == serviceId {
+                if let hostIndex = services[index].hosts.firstIndex(where: { $0.id == host.id }) {
+                    services[index].hosts[hostIndex] = host
+                }
+                return
+            }
+            updateHostWithLocationsRecursive(host, in: serviceId, in: &services[index].childServices)
+        }
+    }
+    
+    private func findServiceContainingHost(_ hostId: UUID, in service: Service) -> Service? {
+        if service.hosts.contains(where: { $0.id == hostId }) {
+            return service
+        }
+        for child in service.childServices {
+            if let found = findServiceContainingHost(hostId, in: child) {
+                return found
+            }
+        }
+        return nil
+    }
+    
+    // Legacy method for updating hosts
     func updateHost(_ host: Host, in serviceId: UUID) {
         updateHostRecursive(host, in: serviceId, in: &services)
         saveServices()

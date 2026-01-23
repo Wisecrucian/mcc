@@ -562,133 +562,207 @@ struct ContentView: View {
     // MARK: - Edit Host Sheet
     
     private func editHostSheet(editData: EditHostData) -> some View {
-        VStack(spacing: 16) {
-            Text("Edit Host")
-                .font(.headline)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Display Name")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                TextField("e.g., Production DB", text: $hostName)
-                    .textFieldStyle(.roundedBorder)
-            }
-            .onAppear {
-                hostName = editData.host.name
-                hostHostname = editData.host.compatibleHostname
-                hostTag = editData.host.tag ?? ""
-                hostPorts = editData.host.compatiblePorts
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Hostname")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                TextField("e.g., db.example.com", text: $hostHostname)
-                    .textFieldStyle(.roundedBorder)
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Tag (optional)")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                TextField("e.g., DC1, EU-West, Production", text: $hostTag)
-                    .textFieldStyle(.roundedBorder)
-            }
-            
-            Divider()
-            
-            // Ports section
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Port Mappings")
-                        .font(.system(size: 13, weight: .medium))
-                    Spacer()
-                    Text("\(hostPorts.count) port(s)")
-                        .font(.system(size: 10))
+        ScrollView {
+            VStack(spacing: 16) {
+                Text("Edit Host")
+                    .font(.headline)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Display Name")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                    TextField("e.g., postgres-master", text: $hostName)
+                        .textFieldStyle(.roundedBorder)
+                }
+                .onAppear {
+                    loadHostDataForEdit(editData.host)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Hostname Template")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                    TextField("e.g., href.dfsdf.{location}.ru", text: $hostTemplate)
+                        .textFieldStyle(.roundedBorder)
+                    Text("Use {location} placeholder for datacenter")
+                        .font(.system(size: 9))
                         .foregroundColor(.secondary)
                 }
                 
-                // Port list
-                if !hostPorts.isEmpty {
-                    ScrollView {
-                        VStack(spacing: 4) {
-                            ForEach(hostPorts) { port in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Remote Port (on server)")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                    TextField("e.g., 5432", text: Binding(
+                        get: { hostRemotePort },
+                        set: { newValue in
+                            let filtered = newValue.filter { $0.isNumber }
+                            hostRemotePort = filtered
+                        }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 100)
+                    .disableAutocorrection(true)
+                    .font(.system(size: 12, design: .monospaced))
+                }
+                
+                Divider()
+                
+                // Datacenters section
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Select Datacenters")
+                            .font(.system(size: 13, weight: .medium))
+                        Spacer()
+                        Text("\(selectedDatacenters.count) selected")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    if viewModel.settingsService.datacenters.isEmpty {
+                        Text("No datacenters configured. Add them in Settings first.")
+                            .font(.system(size: 11))
+                            .foregroundColor(.orange)
+                            .padding(8)
+                    } else {
+                        VStack(spacing: 8) {
+                            ForEach(viewModel.settingsService.datacenters, id: \.self) { dc in
                                 HStack {
-                                    Text("\(port.fromPort) → \(port.toPort)")
-                                        .font(.system(size: 11, design: .monospaced))
-                                    Spacer()
-                                    Button(action: {
-                                        hostPorts.removeAll { $0.id == port.id }
-                                    }) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundColor(.secondary)
+                                    Toggle(isOn: Binding(
+                                        get: { selectedDatacenters.contains(dc) },
+                                        set: { isSelected in
+                                            if isSelected {
+                                                selectedDatacenters.insert(dc)
+                                                if datacenterPorts[dc] == nil {
+                                                    let basePort = Int(startingPort) ?? 9999
+                                                    let offset = selectedDatacenters.count - 1
+                                                    datacenterPorts[dc] = "\(basePort + offset)"
+                                                }
+                                            } else {
+                                                selectedDatacenters.remove(dc)
+                                                datacenterPorts.removeValue(forKey: dc)
+                                            }
+                                        }
+                                    )) {
+                                        Text(dc)
+                                            .font(.system(size: 12, design: .monospaced))
                                     }
-                                    .buttonStyle(.plain)
+                                    .toggleStyle(.checkbox)
+                                    
+                                    Spacer()
+                                    
+                                    if selectedDatacenters.contains(dc) {
+                                        Text("→")
+                                            .foregroundColor(.secondary)
+                                        TextField("Port", text: Binding(
+                                            get: { datacenterPorts[dc] ?? "" },
+                                            set: { newValue in
+                                                let filtered = newValue.filter { $0.isNumber }
+                                                datacenterPorts[dc] = filtered
+                                            }
+                                        ))
+                                        .textFieldStyle(.roundedBorder)
+                                        .frame(width: 70)
+                                        .multilineTextAlignment(.center)
+                                        .disableAutocorrection(true)
+                                        .font(.system(size: 12, design: .monospaced))
+                                    }
                                 }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.secondary.opacity(0.1))
-                                .cornerRadius(4)
                             }
                         }
-                    }
-                    .frame(maxHeight: 100)
-                }
-                
-                // Add port form
-                HStack(spacing: 8) {
-                    TextField("From", text: $newFromPort)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 80)
-                    Text("→")
-                        .foregroundColor(.secondary)
-                    TextField("To", text: $newToPort)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 80)
-                    
-                    Button(action: {
-                        if let from = Int(newFromPort), let to = Int(newToPort) {
-                            hostPorts.append(PortMapping(fromPort: from, toPort: to))
-                            newFromPort = ""
-                            newToPort = ""
+                        
+                        HStack {
+                            Text("Starting port:")
+                                .font(.system(size: 10))
+                            TextField("9999", text: Binding(
+                                get: { startingPort },
+                                set: { newValue in
+                                    let filtered = newValue.filter { $0.isNumber }
+                                    startingPort = filtered
+                                }
+                            ))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 60)
+                            .disableAutocorrection(true)
+                            .font(.system(size: 12, design: .monospaced))
+                            Button("Auto-assign") {
+                                let basePort = Int(startingPort) ?? 9999
+                                for (index, dc) in selectedDatacenters.sorted().enumerated() {
+                                    datacenterPorts[dc] = "\(basePort + index)"
+                                }
+                            }
+                            .font(.system(size: 10))
                         }
-                    }) {
-                        Image(systemName: "plus.circle.fill")
+                        .padding(.top, 4)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(Int(newFromPort) == nil || Int(newToPort) == nil)
                 }
-            }
-            .padding(12)
-            .background(Color.secondary.opacity(0.05))
-            .cornerRadius(8)
-            
-            HStack {
-                Button("Cancel") {
-                    showingEditHost = nil
-                    resetHostForm()
-                }
+                .padding(12)
+                .background(Color.secondary.opacity(0.05))
+                .cornerRadius(8)
                 
-                Button("Save") {
-                    if !hostName.isEmpty && !hostHostname.isEmpty && !hostPorts.isEmpty {
-                        var updated = editData.host
-                        updated.name = hostName
-                        updated.hostname = hostHostname
-                        let tag = hostTag.trimmingCharacters(in: .whitespaces)
-                        updated.tag = tag.isEmpty ? nil : tag
-                        updated.ports = hostPorts
-                        viewModel.updateHost(updated, in: editData.serviceId)
+                HStack {
+                    Button("Cancel") {
                         showingEditHost = nil
                         resetHostForm()
                     }
+                    
+                    Button("Save Changes") {
+                        saveEditedHost(editData: editData)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(hostName.isEmpty || hostTemplate.isEmpty || hostRemotePort.isEmpty || selectedDatacenters.isEmpty)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(hostName.isEmpty || hostHostname.isEmpty || hostPorts.isEmpty)
+            }
+            .padding()
+        }
+        .frame(width: 450, height: 600)
+    }
+    
+    private func loadHostDataForEdit(_ host: Host) {
+        hostName = host.name
+        hostTemplate = host.hostnameTemplate
+        hostRemotePort = "\(host.remotePort)"
+        
+        // Load locations
+        selectedDatacenters = Set(host.locations.map { $0.datacenter })
+        datacenterPorts = Dictionary(uniqueKeysWithValues: host.locations.map { ($0.datacenter, "\($0.localPort)") })
+        
+        // Set starting port to first location's port or default
+        if let firstPort = host.locations.first?.localPort {
+            startingPort = "\(firstPort)"
+        } else {
+            startingPort = "9999"
+        }
+    }
+    
+    private func saveEditedHost(editData: EditHostData) {
+        guard !hostName.isEmpty,
+              !hostTemplate.isEmpty,
+              let remotePort = Int(hostRemotePort),
+              !selectedDatacenters.isEmpty else { return }
+        
+        // Create locations from selected datacenters
+        var locations: [LocationMapping] = []
+        for dc in selectedDatacenters.sorted() {
+            if let portStr = datacenterPorts[dc], let localPort = Int(portStr) {
+                locations.append(LocationMapping(datacenter: dc, localPort: localPort))
             }
         }
-        .padding()
-        .frame(width: 400, height: 550)
+        
+        guard !locations.isEmpty else { return }
+        
+        // Update host
+        viewModel.updateHostWithLocations(
+            hostId: editData.host.id,
+            in: editData.serviceId,
+            name: hostName,
+            hostnameTemplate: hostTemplate,
+            remotePort: remotePort,
+            locations: locations
+        )
+        
+        showingEditHost = nil
+        resetHostForm()
     }
 }
 

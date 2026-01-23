@@ -319,7 +319,7 @@ final class AppViewModel: ObservableObject {
     func startPort(host: Host, port: PortMapping) {
         logService.addLog(
             hostId: host.id,
-            message: "⚡ Starting port \(port.fromPort) → \(port.toPort)...",
+            message: "⚡ Starting port \(String(port.fromPort)) → \(String(port.toPort))...",
             isError: false
         )
         
@@ -331,7 +331,7 @@ final class AppViewModel: ObservableObject {
         
         logService.addLog(
             hostId: host.id,
-            message: "🛑 Stopping port \(port.fromPort) → \(port.toPort)...",
+            message: "🛑 Stopping port \(String(port.fromPort)) → \(String(port.toPort))...",
             isError: false
         )
         
@@ -343,7 +343,7 @@ final class AppViewModel: ObservableObject {
         
         logService.addLog(
             hostId: host.id,
-            message: "⚫ Port \(port.fromPort) → \(port.toPort) stopped",
+            message: "⚫ Port \(String(port.fromPort)) → \(String(port.toPort)) stopped",
             isError: false
         )
     }
@@ -394,7 +394,7 @@ final class AppViewModel: ObservableObject {
                 
                 logService.addLog(
                     hostId: processId,
-                    message: "🟡 Local port \(port.toPort) is already in use",
+                    message: "🟡 Local port \(String(port.toPort)) is already in use",
                     isError: true
                 )
                 
@@ -405,8 +405,8 @@ final class AppViewModel: ObservableObject {
                 )
                 
                 appLogService.warning(
-                    "Port \(port.toPort) is busy",
-                    details: "Host: \(host.name), Mapping: \(port.fromPort)→\(port.toPort), Process: \(processInfo.processName) (PID: \(processInfo.pid))"
+                    "Port \(String(port.toPort)) is busy",
+                    details: "Host: \(host.name), Mapping: \(String(port.fromPort))→\(String(port.toPort)), Process: \(processInfo.processName) (PID: \(processInfo.pid))"
                 )
                 
                 updateHostAggregateState(host)
@@ -416,7 +416,7 @@ final class AppViewModel: ObservableObject {
         
         logService.addLog(
             hostId: processId,
-            message: "🔌 Port \(port.fromPort) → \(port.toPort)",
+            message: "🔌 Port \(String(port.fromPort)) → \(String(port.toPort))",
             isError: false
         )
         
@@ -462,7 +462,7 @@ final class AppViewModel: ObservableObject {
                     self?.hostStates[processId] = .running
                     self?.logService.addLog(
                         hostId: processId,
-                        message: "✅ Port \(port.fromPort) → \(port.toPort) started successfully",
+                        message: "✅ Port \(String(port.fromPort)) → \(String(port.toPort)) started successfully",
                         isError: false
                     )
                     self?.updateHostAggregateState(host)
@@ -470,7 +470,7 @@ final class AppViewModel: ObservableObject {
                     self?.hostStates[processId] = .error
                     self?.logService.addLog(
                         hostId: processId,
-                        message: "❌ Port \(port.fromPort) → \(port.toPort) failed: \(error.localizedDescription)",
+                        message: "❌ Port \(String(port.fromPort)) → \(String(port.toPort)) failed: \(error.localizedDescription)",
                         isError: true
                     )
                     self?.updateHostAggregateState(host)
@@ -485,7 +485,7 @@ final class AppViewModel: ObservableObject {
             
             logService.addLog(
                 hostId: processId,
-                message: "🛑 Stopping port \(port.fromPort) → \(port.toPort)...",
+                message: "🛑 Stopping port \(String(port.fromPort)) → \(String(port.toPort))...",
                 isError: false
             )
             

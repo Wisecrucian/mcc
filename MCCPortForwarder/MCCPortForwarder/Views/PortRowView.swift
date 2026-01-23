@@ -25,7 +25,7 @@ struct PortRowView: View {
             
             // Port mapping info
             HStack(spacing: 2) {
-                Text("\(port.fromPort)")
+                Text(verbatim: String(port.fromPort))
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.primary)
                 
@@ -34,7 +34,7 @@ struct PortRowView: View {
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 2)
                 
-                Text("\(port.toPort)")
+                Text(verbatim: String(port.toPort))
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.primary)
             }
@@ -95,7 +95,7 @@ struct PortRowView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will terminate any process using local port \(port.toPort)")
+            Text(verbatim: "This will terminate any process using local port \(String(port.toPort))")
         }
     }
     

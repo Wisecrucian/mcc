@@ -116,7 +116,7 @@ struct HostRowView: View {
                 VStack(spacing: 2) {
                     ForEach(host.compatiblePorts) { port in
                         let processId = host.processId(for: port)
-                        let portName = "\(host.name) - Port \(port.fromPort)→\(port.toPort)"
+                        let portName = "\(host.name) - Port \(String(port.fromPort))→\(String(port.toPort))"
                         PortRowView(
                             host: host,
                             port: port,

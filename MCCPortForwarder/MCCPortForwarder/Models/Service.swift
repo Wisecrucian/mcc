@@ -8,23 +8,40 @@ import Foundation
 struct Host: Identifiable, Codable, Hashable {
     let id: UUID
     var name: String
-    var hostname: String
-    var tag: String? // Optional tag for organization (e.g., "DC1", "DC2", "EU-West")
-    var ports: [PortMapping]
+    var hostnameTemplate: String  // Can contain {location} placeholder
+    var remotePort: Int            // Remote port on server (e.g., 5432)
+    var locations: [LocationMapping] // Datacenters with local ports
     
-    init(id: UUID = UUID(), name: String, hostname: String, tag: String? = nil, ports: [PortMapping] = []) {
+    // Legacy fields for migration (will be removed later)
+    var hostname: String?
+    var tag: String?
+    var ports: [PortMapping]?
+    
+    init(id: UUID = UUID(), 
+         name: String, 
+         hostnameTemplate: String, 
+         remotePort: Int,
+         locations: [LocationMapping] = []) {
         self.id = id
         self.name = name
-        self.hostname = hostname
-        self.tag = tag
-        self.ports = ports
+        self.hostnameTemplate = hostnameTemplate
+        self.remotePort = remotePort
+        self.locations = locations
+        
+        // Legacy fields
+        self.hostname = nil
+        self.tag = nil
+        self.ports = nil
     }
     
-    // Generate unique ID for each port process
-    func processId(for port: PortMapping) -> UUID {
-        // Create deterministic UUID based on host ID and port ID
-        let combined = "\(id.uuidString)-\(port.id.uuidString)"
-        return UUID(uuidString: combined.md5Hash().prefix(36).padding(toLength: 36, withPad: "0", startingAt: 0)) ?? port.id
+    // Helper: Resolve hostname for a specific location
+    func resolvedHostname(for location: LocationMapping) -> String {
+        hostnameTemplate.replacingOccurrences(of: "{location}", with: location.datacenter)
+    }
+    
+    // Generate unique ID for each location process
+    func processId(for location: LocationMapping) -> UUID {
+        location.processId(forHost: id)
     }
 }
 

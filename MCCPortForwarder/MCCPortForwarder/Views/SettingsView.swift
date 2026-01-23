@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var retryEnabled: Bool = true
     @State private var retryAttempts: String = "3"
     @State private var retryDelay: String = "5"
+    @State private var newDatacenter: String = ""
     
     var body: some View {
         VStack(spacing: 0) {
@@ -33,6 +34,74 @@ struct SettingsView: View {
             
             ScrollView {
                 VStack(spacing: 16) {
+                    // Datacenters Section
+                    settingsSection(
+                        title: "Datacenters",
+                        description: "Manage global list of datacenters used in hostnames"
+                    ) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            // List of datacenters
+                            if !viewModel.settingsService.datacenters.isEmpty {
+                                VStack(spacing: 4) {
+                                    ForEach(viewModel.settingsService.datacenters, id: \.self) { dc in
+                                        HStack {
+                                            Text(dc)
+                                                .font(.system(size: 12, design: .monospaced))
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 4)
+                                                .background(Color.blue.opacity(0.1))
+                                                .cornerRadius(4)
+                                            
+                                            Spacer()
+                                            
+                                            Button(action: {
+                                                viewModel.settingsService.removeDatacenter(dc)
+                                            }) {
+                                                Image(systemName: "xmark.circle.fill")
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                }
+                                .padding(8)
+                                .background(Color.secondary.opacity(0.05))
+                                .cornerRadius(6)
+                            } else {
+                                Text("No datacenters configured. Add your first datacenter below.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                                    .padding(8)
+                            }
+                            
+                            // Add new datacenter
+                            HStack(spacing: 8) {
+                                TextField("e.g., dc1, eu-west, us-east", text: $newDatacenter)
+                                    .textFieldStyle(.roundedBorder)
+                                    .font(.system(size: 12))
+                                
+                                Button(action: {
+                                    if !newDatacenter.isEmpty {
+                                        viewModel.settingsService.addDatacenter(newDatacenter)
+                                        newDatacenter = ""
+                                    }
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "plus.circle.fill")
+                                        Text("Add")
+                                    }
+                                    .font(.system(size: 12))
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(newDatacenter.trimmingCharacters(in: .whitespaces).isEmpty)
+                            }
+                            
+                            Text("These datacenters will be used in hostname templates with {location} placeholder")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
                     // Port Forward Command
                     settingsSection(
                         title: "Port Forward Command",

@@ -373,6 +373,14 @@ struct ContentView: View {
                     .textFieldStyle(.roundedBorder)
             }
             
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Tag (optional)")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                TextField("e.g., DC1, EU-West, Production", text: $hostTag)
+                    .textFieldStyle(.roundedBorder)
+            }
+            
             Divider()
             
             // Ports section

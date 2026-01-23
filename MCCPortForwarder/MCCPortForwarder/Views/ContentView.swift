@@ -502,9 +502,9 @@ struct ContentView: View {
             }
             .onAppear {
                 hostName = editData.host.name
-                hostHostname = editData.host.hostname
+                hostHostname = editData.host.compatibleHostname
                 hostTag = editData.host.tag ?? ""
-                hostPorts = editData.host.ports
+                hostPorts = editData.host.compatiblePorts
             }
             
             VStack(alignment: .leading, spacing: 4) {

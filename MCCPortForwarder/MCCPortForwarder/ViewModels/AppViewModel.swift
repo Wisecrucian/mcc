@@ -172,7 +172,7 @@ final class AppViewModel: ObservableObject {
         if let host = findHostById(hostId, in: services) {
             logService.addLog(
                 hostId: hostId,
-                message: "Host deleted - stopping all \(host.ports.count) port(s) and clearing logs",
+                message: "Host deleted - stopping all \(host.compatiblePorts.count) port(s) and clearing logs",
                 isError: false
             )
             
@@ -213,7 +213,7 @@ final class AppViewModel: ObservableObject {
         
         logService.addLog(
             hostId: host.id,
-            message: "Host updated - Name: '\(host.name)', Hostname: '\(host.hostname)'",
+            message: "Host updated - Name: '\(host.name)', Hostname: '\(host.compatibleHostname)'",
             isError: false
         )
     }
@@ -233,7 +233,7 @@ final class AppViewModel: ObservableObject {
     // MARK: - Process Control
     
     func startHost(_ host: Host) {
-        guard !host.ports.isEmpty else {
+        guard !host.compatiblePorts.isEmpty else {
             logService.addLog(
                 hostId: host.id,
                 message: "❌ No ports configured for this host",
@@ -245,13 +245,13 @@ final class AppViewModel: ObservableObject {
         
         logService.addLog(
             hostId: host.id,
-            message: "⚡ Starting \(host.ports.count) port mapping(s) for '\(host.hostname)'...",
+            message: "⚡ Starting \(host.compatiblePorts.count) port mapping(s) for '\(host.compatibleHostname)'...",
             isError: false
         )
         
-        appLogService.info("Starting host '\(host.name)' with \(host.ports.count) port(s)", details: "Hostname: \(host.hostname)")
+        appLogService.info("Starting host '\(host.name)' with \(host.compatiblePorts.count) port(s)", details: "Hostname: \(host.compatibleHostname)")
         
-        for port in host.ports {
+        for port in host.compatiblePorts {
             startHostPort(host: host, port: port)
         }
     }
@@ -308,7 +308,7 @@ final class AppViewModel: ObservableObject {
     private func startHostPort(host: Host, port: PortMapping) {
         let processId = host.processId(for: port)
         let command = settingsService.getCommand()
-        let fullCommand = "\(command) \(host.hostname):\(port.fromPort) -p \(port.toPort)"
+        let fullCommand = "\(command) \(host.compatibleHostname):\(port.fromPort) -p \(port.toPort)"
         
         // Register mapping for logs - каждый порт имеет свой уникальный processId и логи
         // processId уникален для каждого port mapping, не переназначаем
@@ -359,7 +359,7 @@ final class AppViewModel: ObservableObject {
         processService.startHost(
             processId,
             command: command,
-            hostname: host.hostname,
+            hostname: host.compatibleHostname,
             fromPort: port.fromPort,
             toPort: port.toPort,
             retryAttempts: retryAttempts,
@@ -389,7 +389,7 @@ final class AppViewModel: ObservableObject {
     }
     
     func stopHostAllPorts(_ host: Host) {
-        for port in host.ports {
+        for port in host.compatiblePorts {
             let processId = host.processId(for: port)
             
             logService.addLog(
@@ -412,7 +412,7 @@ final class AppViewModel: ObservableObject {
     }
     
     private func updateHostAggregateState(_ host: Host) {
-        let portStates = host.ports.map { hostStates[host.processId(for: $0)] ?? .stopped }
+        let portStates = host.compatiblePorts.map { hostStates[host.processId(for: $0)] ?? .stopped }
         
         if portStates.allSatisfy({ $0 == .running }) {
             hostStates[host.id] = .running
@@ -534,7 +534,7 @@ final class AppViewModel: ObservableObject {
         for service in services {
             for host in service.hosts {
                 // Update state for each port
-                for port in host.ports {
+                for port in host.compatiblePorts {
                     let processId = host.processId(for: port)
                     let state = processService.getHostState(processId)
                     hostStates[processId] = state

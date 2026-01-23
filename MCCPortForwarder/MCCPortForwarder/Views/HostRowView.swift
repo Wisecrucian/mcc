@@ -58,7 +58,7 @@ struct HostRowView: View {
                         }
                     }
                     
-                    Text(host.hostname)
+                    Text(host.compatibleHostname)
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                 }
@@ -66,7 +66,7 @@ struct HostRowView: View {
                 Spacer()
                 
                 // Ports count
-                Text("\(host.ports.count) mapping\(host.ports.count == 1 ? "" : "s")")
+                Text("\(host.compatiblePorts.count) mapping\(host.compatiblePorts.count == 1 ? "" : "s")")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
                 
@@ -112,9 +112,9 @@ struct HostRowView: View {
             .padding(.leading, 16)
             
             // Individual ports (expanded)
-            if isExpanded && !host.ports.isEmpty {
+            if isExpanded && !host.compatiblePorts.isEmpty {
                 VStack(spacing: 2) {
-                    ForEach(host.ports) { port in
+                    ForEach(host.compatiblePorts) { port in
                         let processId = host.processId(for: port)
                         let portName = "\(host.name) - Port \(port.fromPort)→\(port.toPort)"
                         PortRowView(

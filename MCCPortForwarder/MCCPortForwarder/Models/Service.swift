@@ -87,7 +87,8 @@ struct Host: Identifiable, Codable, Hashable {
     func processId(for port: PortMapping) -> UUID {
         // If using new structure, find matching location
         if usesNewStructure {
-            if let location = locations.first(where: { $0.localPort == port.fromPort }) {
+            // toPort = localPort, which uniquely identifies each location
+            if let location = locations.first(where: { $0.localPort == port.toPort }) {
                 return processId(for: location)
             }
         }

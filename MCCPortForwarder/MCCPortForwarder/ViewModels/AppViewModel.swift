@@ -382,7 +382,7 @@ final class AppViewModel: ObservableObject {
             hostname = host.compatibleHostname
         }
         
-        let fullCommand = "\(command) \(hostname):\(port.toPort) -p \(port.fromPort)"
+        let fullCommand = "\(command) \(hostname):\(port.fromPort) -p \(port.toPort)"
         
         // Register mapping for logs - каждый порт имеет свой уникальный processId и логи
         // processId уникален для каждого port mapping, не переназначаем
@@ -440,8 +440,8 @@ final class AppViewModel: ObservableObject {
             processId,
             command: command,
             hostname: hostname,
-            fromPort: port.toPort,
-            toPort: port.fromPort,
+            fromPort: port.fromPort,
+            toPort: port.toPort,
             retryAttempts: retryAttempts,
             retryDelay: retryDelay,
             onRetryAttempt: { [weak self] attempt in

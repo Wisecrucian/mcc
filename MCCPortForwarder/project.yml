@@ -1,0 +1,29 @@
+name: MCCPortForwarder
+
+options:
+  bundleIdPrefix: com.mcc
+  deploymentTarget:
+    macOS: "13.0"
+
+targets:
+  MCCPortForwarder:
+    type: application
+    platform: macOS
+    
+    sources:
+      - MCCPortForwarder
+    
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.mcc.portforwarder
+      MARKETING_VERSION: "1.0.0"
+      CURRENT_PROJECT_VERSION: "1"
+      INFOPLIST_FILE: MCCPortForwarder/Info.plist
+      SWIFT_VERSION: "5.9"
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      COMBINE_HIDPI_IMAGES: YES
+      ENABLE_PREVIEWS: YES
+      DEVELOPMENT_ASSET_PATHS: ""
+      CODE_SIGN_STYLE: Automatic
+      CODE_SIGN_IDENTITY: "-"
+

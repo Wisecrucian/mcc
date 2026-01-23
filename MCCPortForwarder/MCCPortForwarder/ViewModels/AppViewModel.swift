@@ -372,8 +372,8 @@ final class AppViewModel: ObservableObject {
         // Resolve hostname with location if using new structure
         let hostname: String
         if host.usesNewStructure {
-            // Find the location for this port
-            if let location = host.locations.first(where: { $0.localPort == port.fromPort }) {
+            // Find the location for this port (toPort = localPort)
+            if let location = host.locations.first(where: { $0.localPort == port.toPort }) {
                 hostname = host.resolvedHostname(for: location)
             } else {
                 hostname = host.compatibleHostname

@@ -42,8 +42,22 @@ struct HostRowView: View {
                 
                 // Host info
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(host.name)
-                        .font(.system(size: 12, weight: .medium))
+                    HStack(spacing: 6) {
+                        Text(host.name)
+                            .font(.system(size: 12, weight: .medium))
+                        
+                        // Tag badge
+                        if let tag = host.tag, !tag.isEmpty {
+                            Text(tag)
+                                .font(.system(size: 9, weight: .medium))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.blue.opacity(0.15))
+                                .foregroundColor(.blue)
+                                .cornerRadius(4)
+                        }
+                    }
+                    
                     Text(host.hostname)
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)

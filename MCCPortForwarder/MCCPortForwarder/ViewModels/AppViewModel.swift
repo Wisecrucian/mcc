@@ -129,15 +129,16 @@ final class AppViewModel: ObservableObject {
     
     // MARK: - Host Management
     
-    func addHost(to serviceId: UUID, name: String, hostname: String, ports: [PortMapping]) {
-        addHostRecursive(to: serviceId, name: name, hostname: hostname, ports: ports, in: &services)
+    func addHost(to serviceId: UUID, name: String, hostname: String, tag: String? = nil, ports: [PortMapping]) {
+        addHostRecursive(to: serviceId, name: name, hostname: hostname, tag: tag, ports: ports, in: &services)
         saveServices()
         
         // Log action - using first host's ID for logging
         if let addedHost = findHostByName(name, in: services) {
+            let tagInfo = tag.map { " [Tag: \($0)]" } ?? ""
             logService.addLog(
                 hostId: addedHost.id,
-                message: "Host '\(name)' added with hostname '\(hostname)' and \(ports.count) port(s)",
+                message: "Host '\(name)' added with hostname '\(hostname)'\(tagInfo) and \(ports.count) port(s)",
                 isError: false
             )
         }
@@ -155,14 +156,14 @@ final class AppViewModel: ObservableObject {
         return nil
     }
     
-    private func addHostRecursive(to serviceId: UUID, name: String, hostname: String, ports: [PortMapping], in services: inout [Service]) {
+    private func addHostRecursive(to serviceId: UUID, name: String, hostname: String, tag: String?, ports: [PortMapping], in services: inout [Service]) {
         for index in services.indices {
             if services[index].id == serviceId {
-                let host = Host(name: name, hostname: hostname, ports: ports)
+                let host = Host(name: name, hostname: hostname, tag: tag, ports: ports)
                 services[index].hosts.append(host)
                 return
             }
-            addHostRecursive(to: serviceId, name: name, hostname: hostname, ports: ports, in: &services[index].childServices)
+            addHostRecursive(to: serviceId, name: name, hostname: hostname, tag: tag, ports: ports, in: &services[index].childServices)
         }
     }
     

@@ -21,6 +21,7 @@ struct ContentView: View {
     @State private var serviceName = ""
     @State private var hostName = ""
     @State private var hostHostname = ""
+    @State private var hostTag = ""
     @State private var hostPorts: [PortMapping] = []
     @State private var newFromPort = ""
     @State private var newToPort = ""
@@ -448,10 +449,12 @@ struct ContentView: View {
                 
                 Button("Add") {
                     if !hostName.isEmpty && !hostHostname.isEmpty && !hostPorts.isEmpty {
+                        let tag = hostTag.trimmingCharacters(in: .whitespaces)
                         viewModel.addHost(
                             to: serviceId,
                             name: hostName,
                             hostname: hostHostname,
+                            tag: tag.isEmpty ? nil : tag,
                             ports: hostPorts
                         )
                         showingAddHost = nil
@@ -469,6 +472,7 @@ struct ContentView: View {
     private func resetHostForm() {
         hostName = ""
         hostHostname = ""
+        hostTag = ""
         hostPorts = []
         newFromPort = ""
         newToPort = ""
@@ -491,6 +495,7 @@ struct ContentView: View {
             .onAppear {
                 hostName = editData.host.name
                 hostHostname = editData.host.hostname
+                hostTag = editData.host.tag ?? ""
                 hostPorts = editData.host.ports
             }
             
@@ -499,6 +504,14 @@ struct ContentView: View {
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                 TextField("e.g., db.example.com", text: $hostHostname)
+                    .textFieldStyle(.roundedBorder)
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Tag (optional)")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                TextField("e.g., DC1, EU-West, Production", text: $hostTag)
                     .textFieldStyle(.roundedBorder)
             }
             
@@ -581,6 +594,8 @@ struct ContentView: View {
                         var updated = editData.host
                         updated.name = hostName
                         updated.hostname = hostHostname
+                        let tag = hostTag.trimmingCharacters(in: .whitespaces)
+                        updated.tag = tag.isEmpty ? nil : tag
                         updated.ports = hostPorts
                         viewModel.updateHost(updated, in: editData.serviceId)
                         showingEditHost = nil

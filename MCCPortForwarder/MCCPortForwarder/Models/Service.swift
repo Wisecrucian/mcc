@@ -9,12 +9,14 @@ struct Host: Identifiable, Codable, Hashable {
     let id: UUID
     var name: String
     var hostname: String
+    var tag: String? // Optional tag for organization (e.g., "DC1", "DC2", "EU-West")
     var ports: [PortMapping]
     
-    init(id: UUID = UUID(), name: String, hostname: String, ports: [PortMapping] = []) {
+    init(id: UUID = UUID(), name: String, hostname: String, tag: String? = nil, ports: [PortMapping] = []) {
         self.id = id
         self.name = name
         self.hostname = hostname
+        self.tag = tag
         self.ports = ports
     }
     

@@ -285,7 +285,30 @@ struct ContentView: View {
     }
     
     private var activeConnectionsCount: Int {
-        viewModel.hostStates.values.filter { $0 == .running }.count
+        // Count only port processes, not host aggregate states
+        var count = 0
+        for service in viewModel.services {
+            count += countRunningPorts(in: service)
+        }
+        return count
+    }
+    
+    private func countRunningPorts(in service: Service) -> Int {
+        var count = 0
+        // Count running ports in hosts
+        for host in service.hosts {
+            for port in host.compatiblePorts {
+                let processId = host.processId(for: port)
+                if viewModel.hostStates[processId] == .running {
+                    count += 1
+                }
+            }
+        }
+        // Count running ports in child services
+        for child in service.childServices {
+            count += countRunningPorts(in: child)
+        }
+        return count
     }
     
     // MARK: - Add Service Sheet

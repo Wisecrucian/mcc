@@ -76,7 +76,7 @@ struct SettingsView: View {
                             
                             // Add new datacenter
                             HStack(spacing: 8) {
-                                TextField("e.g., dc1, eu-west, us-east", text: $newDatacenter)
+                                TextField("e.g., hc, kc, pc", text: $newDatacenter)
                                     .textFieldStyle(.roundedBorder)
                                     .font(.system(size: 12))
                                 
@@ -105,7 +105,7 @@ struct SettingsView: View {
                     // Port Forward Command
                     settingsSection(
                         title: "Port Forward Command",
-                        description: "Command to forward ports.\nFormat: {command} hostname:portfrom -p portto"
+                        description: ""
                     ) {
                         TextField("e.g., /usr/local/bin/mcc tp-port-forward", text: $command)
                             .textFieldStyle(.roundedBorder)

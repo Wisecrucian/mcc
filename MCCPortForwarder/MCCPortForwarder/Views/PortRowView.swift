@@ -71,18 +71,6 @@ struct PortRowView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Kill process on local port \(port.toPort)")
-                .confirmationDialog(
-                    "Kill process on local port \(port.toPort)?",
-                    isPresented: $showingKillConfirm,
-                    titleVisibility: .visible
-                ) {
-                    Button("Kill Process", role: .destructive) {
-                        onKillPort()
-                    }
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    Text("This will terminate any process using local port \(port.toPort)")
-                }
             }
             
             // Toggle button
@@ -97,6 +85,18 @@ struct PortRowView: View {
         .padding(.vertical, 3)
         .padding(.horizontal, 12)
         .padding(.leading, 24)
+        .confirmationDialog(
+            "Kill process on local port \(port.toPort)?",
+            isPresented: $showingKillConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Kill Process", role: .destructive) {
+                onKillPort?()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will terminate any process using local port \(port.toPort)")
+        }
     }
     
     private var statusColor: Color {

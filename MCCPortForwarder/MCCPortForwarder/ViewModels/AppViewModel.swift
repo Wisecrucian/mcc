@@ -657,59 +657,68 @@ final class AppViewModel: ObservableObject {
         // Find the specific port mapping process ID for logging
         let processId = host.processId(for: portMapping)
         
-        // Check if port is in use
-        if let processInfo = portKillerService.findProcessOnPort(port) {
-            appLogService.warning(
-                "Found process on port \(port)",
-                details: "Process: \(processInfo.processName) (PID: \(processInfo.pid))"
-            )
+        // Run on background thread to avoid blocking UI
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
             
-            logService.addLog(
-                hostId: processId,
-                message: "🔍 Found process '\(processInfo.processName)' (PID: \(processInfo.pid)) on port \(port)",
-                isError: false
-            )
+            // Check if port is in use
+            guard let processInfo = self.portKillerService.findProcessOnPort(port) else {
+                DispatchQueue.main.async {
+                    self.appLogService.warning("No process found on port \(port)", details: "Host: \(host.name)")
+                }
+                return
+            }
             
-            // Try graceful kill first
-            let result = portKillerService.killProcessOnPort(port, force: false)
-            
-            if result.success {
-                appLogService.success("Killed process on port \(port)", details: result.message)
-                logService.addLog(
-                    hostId: processId,
-                    message: "✅ \(result.message)",
-                    isError: false
-                )
-            } else {
-                appLogService.error("Failed to kill process on port \(port)", details: result.message)
-                logService.addLog(
-                    hostId: processId,
-                    message: "❌ \(result.message)",
-                    isError: true
+            DispatchQueue.main.async {
+                self.appLogService.warning(
+                    "Found process on port \(port)",
+                    details: "Process: \(processInfo.processName) (PID: \(processInfo.pid))"
                 )
                 
-                // Offer force kill after delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    if self.portKillerService.isPortInUse(port) {
-                        let forceResult = self.portKillerService.killProcessOnPort(port, force: true)
-                        if forceResult.success {
-                            self.appLogService.warning("Force killed process on port \(port)", details: forceResult.message)
-                            self.logService.addLog(
-                                hostId: processId,
-                                message: "⚠️ Force killed: \(forceResult.message)",
-                                isError: false
-                            )
+                self.logService.addLog(
+                    hostId: processId,
+                    message: "🔍 Found process '\(processInfo.processName)' (PID: \(processInfo.pid)) on port \(port)",
+                    isError: false
+                )
+            }
+            
+            // Try graceful kill first (on background thread)
+            let result = self.portKillerService.killProcessOnPort(port, force: false)
+            
+            DispatchQueue.main.async {
+                if result.success {
+                    self.appLogService.success("Killed process on port \(port)", details: result.message)
+                    self.logService.addLog(
+                        hostId: processId,
+                        message: "✅ \(result.message)",
+                        isError: false
+                    )
+                } else {
+                    self.appLogService.error("Failed to kill process on port \(port)", details: result.message)
+                    self.logService.addLog(
+                        hostId: processId,
+                        message: "❌ \(result.message)",
+                        isError: true
+                    )
+                    
+                    // Offer force kill after delay
+                    DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 2.0) {
+                        if self.portKillerService.isPortInUse(port) {
+                            let forceResult = self.portKillerService.killProcessOnPort(port, force: true)
+                            DispatchQueue.main.async {
+                                if forceResult.success {
+                                    self.appLogService.warning("Force killed process on port \(port)", details: forceResult.message)
+                                    self.logService.addLog(
+                                        hostId: processId,
+                                        message: "⚠️ Force killed: \(forceResult.message)",
+                                        isError: false
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
-        } else {
-            appLogService.info("Port \(port) is not in use")
-            logService.addLog(
-                hostId: processId,
-                message: "ℹ️ Port \(port) is not in use",
-                isError: false
-            )
         }
     }
     

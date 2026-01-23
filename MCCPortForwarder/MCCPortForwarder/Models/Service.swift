@@ -72,8 +72,9 @@ struct Host: Identifiable, Codable, Hashable {
             return legacyPorts
         }
         // Convert locations to PortMapping format for compatibility
+        // fromPort = remotePort (on server), toPort = localPort (on this machine)
         return locations.map { location in
-            PortMapping(fromPort: location.localPort, toPort: remotePort)
+            PortMapping(fromPort: remotePort, toPort: location.localPort)
         }
     }
     

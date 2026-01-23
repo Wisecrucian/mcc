@@ -35,6 +35,7 @@ final class ProcessService: ObservableObject {
         toPort: Int,
         retryAttempts: Int = 1,
         retryDelay: Int = 5,
+        onRetryAttempt: ((Int) -> Void)? = nil,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         queue.async(flags: .barrier) { [weak self] in
@@ -119,6 +120,7 @@ final class ProcessService: ObservableObject {
                         toPort: toPort,
                         remainingAttempts: retryAttempts - 1,
                         retryDelay: retryDelay,
+                        onRetryAttempt: onRetryAttempt,
                         completion: completion
                     )
                 }
@@ -136,6 +138,9 @@ final class ProcessService: ObservableObject {
                     )
                     
                     DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(retryDelay)) {
+                        // Notify about retry attempt
+                        onRetryAttempt?(retryAttempts - 1)
+                        
                         self.startHost(
                             hostId,
                             command: command,
@@ -144,6 +149,7 @@ final class ProcessService: ObservableObject {
                             toPort: toPort,
                             retryAttempts: retryAttempts - 1,
                             retryDelay: retryDelay,
+                            onRetryAttempt: onRetryAttempt,
                             completion: completion
                         )
                     }
@@ -381,6 +387,7 @@ final class ProcessService: ObservableObject {
         toPort: Int,
         remainingAttempts: Int,
         retryDelay: Int,
+        onRetryAttempt: ((Int) -> Void)?,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         queue.async(flags: .barrier) { [weak self] in
@@ -405,6 +412,9 @@ final class ProcessService: ObservableObject {
                     
                     // Retry after delay
                     DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(retryDelay)) {
+                        // Notify about retry attempt
+                        onRetryAttempt?(remainingAttempts)
+                        
                         self.startHost(
                             hostId,
                             command: command,
@@ -413,6 +423,7 @@ final class ProcessService: ObservableObject {
                             toPort: toPort,
                             retryAttempts: remainingAttempts,
                             retryDelay: retryDelay,
+                            onRetryAttempt: onRetryAttempt,
                             completion: { _ in } // Ignore completion for retries
                         )
                     }

@@ -129,6 +129,17 @@ final class AppViewModel: ObservableObject {
     
     // MARK: - Host Management
     
+    // New method for datacenter-based hosts
+    func addHostWithLocations(to serviceId: UUID, name: String, hostnameTemplate: String, remotePort: Int, locations: [LocationMapping]) {
+        let newHost = Host(name: name, hostnameTemplate: hostnameTemplate, remotePort: remotePort, locations: locations)
+        addHostWithLocationsRecursive(to: serviceId, host: newHost, in: &services)
+        saveServices()
+        
+        // Log action
+        appLogService.log("Added host '\(name)' with \(locations.count) datacenter(s)", level: .info)
+    }
+    
+    // Legacy method for old-style hosts
     func addHost(to serviceId: UUID, name: String, hostname: String, tag: String? = nil, ports: [PortMapping]) {
         addHostRecursive(to: serviceId, name: name, hostname: hostname, tag: tag, ports: ports, in: &services)
         saveServices()
@@ -156,6 +167,18 @@ final class AppViewModel: ObservableObject {
         return nil
     }
     
+    // New recursive helper for location-based hosts
+    private func addHostWithLocationsRecursive(to serviceId: UUID, host: Host, in services: inout [Service]) {
+        for index in services.indices {
+            if services[index].id == serviceId {
+                services[index].hosts.append(host)
+                return
+            }
+            addHostWithLocationsRecursive(to: serviceId, host: host, in: &services[index].childServices)
+        }
+    }
+    
+    // Legacy recursive helper for old-style hosts
     private func addHostRecursive(to serviceId: UUID, name: String, hostname: String, tag: String?, ports: [PortMapping], in services: inout [Service]) {
         for index in services.indices {
             if services[index].id == serviceId {
@@ -295,7 +318,7 @@ final class AppViewModel: ObservableObject {
         switch state {
         case .stopped, .error, .portInUse:
             startPort(host: host, port: port)
-        case .running:
+        case .running, .restarting:
             stopPort(host: host, port: port)
         }
     }
@@ -308,7 +331,21 @@ final class AppViewModel: ObservableObject {
     private func startHostPort(host: Host, port: PortMapping) {
         let processId = host.processId(for: port)
         let command = settingsService.getCommand()
-        let fullCommand = "\(command) \(host.compatibleHostname):\(port.fromPort) -p \(port.toPort)"
+        
+        // Resolve hostname with location if using new structure
+        let hostname: String
+        if host.usesNewStructure {
+            // Find the location for this port
+            if let location = host.locations.first(where: { $0.localPort == port.fromPort }) {
+                hostname = host.resolvedHostname(for: location)
+            } else {
+                hostname = host.compatibleHostname
+            }
+        } else {
+            hostname = host.compatibleHostname
+        }
+        
+        let fullCommand = "\(command) \(hostname):\(port.toPort) -p \(port.fromPort)"
         
         // Register mapping for logs - каждый порт имеет свой уникальный processId и логи
         // processId уникален для каждого port mapping, не переназначаем
@@ -348,6 +385,12 @@ final class AppViewModel: ObservableObject {
         
         logService.addLog(
             hostId: processId,
+            message: "Hostname: \(hostname)",
+            isError: false
+        )
+        
+        logService.addLog(
+            hostId: processId,
             message: "Command: \(fullCommand)",
             isError: false
         )
@@ -359,11 +402,22 @@ final class AppViewModel: ObservableObject {
         processService.startHost(
             processId,
             command: command,
-            hostname: host.compatibleHostname,
-            fromPort: port.fromPort,
-            toPort: port.toPort,
+            hostname: hostname,
+            fromPort: port.toPort,
+            toPort: port.fromPort,
             retryAttempts: retryAttempts,
-            retryDelay: retryDelay
+            retryDelay: retryDelay,
+            onRetryAttempt: { [weak self] attempt in
+                // Set restarting state
+                DispatchQueue.main.async {
+                    self?.hostStates[processId] = .restarting
+                    self?.logService.addLog(
+                        hostId: processId,
+                        message: "🔄 Retry attempt \(attempt) of \(retryAttempts)...",
+                        isError: false
+                    )
+                }
+            }
         ) { [weak self] result in
             Task { @MainActor [weak self] in
                 switch result {
@@ -473,7 +527,7 @@ final class AppViewModel: ObservableObject {
         switch state {
         case .stopped, .error, .portInUse:
             startHost(host)
-        case .running:
+        case .running, .restarting:
             stopHostAllPorts(host)
         }
     }

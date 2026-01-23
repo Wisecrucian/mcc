@@ -109,6 +109,8 @@ struct PortRowView: View {
             return .red
         case .portInUse:
             return .orange
+        case .restarting:
+            return .yellow
         }
     }
     
@@ -122,6 +124,8 @@ struct PortRowView: View {
             return .red
         case .portInUse:
             return .orange
+        case .restarting:
+            return .yellow
         }
     }
 }

@@ -10,6 +10,7 @@ enum ProcessState: String, Codable {
     case running
     case error
     case portInUse
+    case restarting
     
     var displayName: String {
         switch self {
@@ -17,6 +18,7 @@ enum ProcessState: String, Codable {
         case .running: return "Running"
         case .error: return "Error"
         case .portInUse: return "Port Busy"
+        case .restarting: return "Restarting"
         }
     }
     
@@ -26,6 +28,7 @@ enum ProcessState: String, Codable {
         case .running: return "🟢"
         case .error: return "🔴"
         case .portInUse: return "🟡"
+        case .restarting: return "🟠"
         }
     }
 }

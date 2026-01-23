@@ -182,6 +182,8 @@ struct ServiceRowView: View {
             return .red
         case .portInUse:
             return .orange
+        case .restarting:
+            return .yellow
         }
     }
 }

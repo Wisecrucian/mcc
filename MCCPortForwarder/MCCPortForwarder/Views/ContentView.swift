@@ -253,20 +253,20 @@ struct ContentView: View {
             
             HStack {
                 // Auth buttons
-                Button(action: { viewModel.login() }) {
+                Button(action: { viewModel.logout() }) {
                     HStack(spacing: 4) {
-                        Image(systemName: "person.badge.key")
-                        Text("Login")
+                        Image(systemName: "arrow.right.square")
+                        Text("Logout")
                     }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .disabled(viewModel.isAuthenticating)
                 
-                Button(action: { viewModel.logout() }) {
+                Button(action: { viewModel.login() }) {
                     HStack(spacing: 4) {
-                        Image(systemName: "arrow.right.square")
-                        Text("Logout")
+                        Image(systemName: "person.badge.key")
+                        Text("Login")
                     }
                 }
                 .buttonStyle(.bordered)

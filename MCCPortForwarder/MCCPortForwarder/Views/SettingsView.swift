@@ -34,6 +34,50 @@ struct SettingsView: View {
             
             ScrollView {
                 VStack(spacing: 16) {
+                    // Configuration Import/Export Section
+                    settingsSection(
+                        title: "Configuration Backup",
+                        description: "Export or import your complete configuration (services, hosts, settings)"
+                    ) {
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                dismiss()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    viewModel.exportConfiguration()
+                                }
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "square.and.arrow.up")
+                                    Text("Export Configuration")
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                            
+                            Button(action: {
+                                dismiss()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    viewModel.importConfiguration()
+                                }
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "square.and.arrow.down")
+                                    Text("Import Configuration")
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                        
+                        Text("💡 Configuration includes all services, hosts, port mappings, and application settings")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                            .padding(6)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.blue.opacity(0.08))
+                            .cornerRadius(4)
+                    }
+                    
                     // Datacenters Section
                     settingsSection(
                         title: "Datacenters",
@@ -232,7 +276,7 @@ struct SettingsView: View {
             }
             .padding(20)
         }
-        .frame(width: 600, height: 650)
+        .frame(width: 600, height: 720)
         .onAppear {
             loadSettings()
         }

@@ -5,6 +5,8 @@
 
 import Foundation
 import Combine
+import AppKit
+import UniformTypeIdentifiers
 
 @MainActor
 final class AppViewModel: ObservableObject {
@@ -949,6 +951,107 @@ final class AppViewModel: ObservableObject {
         }
         
         return validPaths.joined(separator: ":")
+    }
+    
+    // MARK: - Configuration Import/Export
+    
+    func exportConfiguration() {
+        let config = ConfigurationExport(
+            services: services,
+            settings: ConfigurationExport.SettingsExport(
+                command: settingsService.getCommand(),
+                loginCommand: settingsService.getLoginCommand(),
+                logoutCommand: settingsService.getLogoutCommand(),
+                retryEnabled: settingsService.isRetryEnabled(),
+                retryAttempts: settingsService.getRetryAttempts(),
+                retryDelay: settingsService.getRetryDelay(),
+                datacenters: settingsService.datacenters
+            )
+        )
+        
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+        savePanel.nameFieldStringValue = "mcc-config-\(dateFormatter.string(from: Date())).json"
+        savePanel.title = "Export Configuration"
+        savePanel.message = "Save your MCCPortForwarder configuration"
+        
+        savePanel.begin { response in
+            guard response == .OK, let url = savePanel.url else { return }
+            
+            Task { @MainActor in
+                do {
+                    let encoder = JSONEncoder()
+                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                    encoder.dateEncodingStrategy = .iso8601
+                    
+                    let data = try encoder.encode(config)
+                    try data.write(to: url)
+                    
+                    self.appLogService.success("Configuration exported to: \(url.path)")
+                } catch {
+                    self.appLogService.error("Failed to export configuration: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    func importConfiguration() {
+        let openPanel = NSOpenPanel()
+        openPanel.allowedContentTypes = [.json]
+        openPanel.allowsMultipleSelection = false
+        openPanel.title = "Import Configuration"
+        openPanel.message = "Select a configuration file to import"
+        
+        openPanel.begin { response in
+            guard response == .OK, let url = openPanel.url else { return }
+            
+            Task { @MainActor in
+                do {
+                    let data = try Data(contentsOf: url)
+                    
+                    let decoder = JSONDecoder()
+                    decoder.dateDecodingStrategy = .iso8601
+                    
+                    let config = try decoder.decode(ConfigurationExport.self, from: data)
+                    
+                    // Stop all running processes before importing
+                    self.stopAllServices()
+                    
+                    // Import services
+                    self.services = config.services
+                    self.saveServices()
+                    
+                    // Import settings
+                    self.settingsService.saveCommand(config.settings.command)
+                    self.settingsService.saveLoginCommand(config.settings.loginCommand)
+                    self.settingsService.saveLogoutCommand(config.settings.logoutCommand)
+                    self.settingsService.setRetryEnabled(config.settings.retryEnabled)
+                    self.settingsService.saveRetryAttempts(config.settings.retryAttempts)
+                    self.settingsService.saveRetryDelay(config.settings.retryDelay)
+                    
+                    // Import datacenters
+                    for dc in config.settings.datacenters {
+                        self.settingsService.addDatacenter(dc)
+                    }
+                    
+                    self.appLogService.success("Configuration imported successfully from: \(url.path)")
+                } catch {
+                    self.appLogService.error("Failed to import configuration: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
+        return formatter
+    }
+    
+    private func stopAllServices() {
+        for service in services {
+            stopServiceRecursive(service)
+        }
     }
 }
 

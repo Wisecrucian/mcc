@@ -1,7 +1,7 @@
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "1.9.21"
-    id("org.jetbrains.intellij") version "1.16.1"
+    id("org.jetbrains.kotlin.jvm") version "1.9.22"
+    id("org.jetbrains.intellij") version "1.17.2"
 }
 
 group = "com.mcc"
@@ -11,41 +11,28 @@ repositories {
     mavenCentral()
 }
 
-// Note: Do NOT add kotlin-stdlib or kotlinx-coroutines dependencies!
-// They are already provided by the IntelliJ Platform.
-// Adding them will cause ClassLoader conflicts.
 dependencies {
-    // Add only non-Kotlin dependencies here if needed
+    implementation("com.google.code.gson:gson:2.10.1")
 }
 
-// Configure Gradle IntelliJ Plugin
 intellij {
     version.set("2024.1")
-    type.set("IC") // IntelliJ IDEA Community Edition
-    
-    plugins.set(listOf(
-        // Add any required plugin dependencies here
-    ))
-}
-
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
-    }
+    type.set("IU")
+    plugins.set(listOf())
 }
 
 tasks {
     withType<JavaCompile> {
-        sourceCompatibility = "17"
-        targetCompatibility = "17"
+        sourceCompatibility = "21"
+        targetCompatibility = "21"
     }
     
     withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.jvmTarget = "17"
+        kotlinOptions.jvmTarget = "21"
     }
 
     patchPluginXml {
-        sinceBuild.set("241")
+        sinceBuild.set("242")
         untilBuild.set("251.*")
     }
 
@@ -64,7 +51,11 @@ tasks {
     }
 }
 
-kotlin {
-    jvmToolchain(17)
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
+kotlin {
+    jvmToolchain(21)
+}

@@ -1,65 +1,40 @@
 <idea-plugin>
     <id>com.mcc.portforwarder</id>
     <name>MCC Port Forwarder</name>
-    <vendor email="support@example.com" url="https://example.com">MCC</vendor>
-
+    <vendor>MCC</vendor>
+    
     <description><![CDATA[
-    <h1>MCC Port Forwarder</h1>
-    <p>Manage port forwarding connections directly from IntelliJ IDEA.</p>
-    
-    <h2>Features:</h2>
-    <ul>
-      <li>Manage services and hosts hierarchically</li>
-      <li>Multiple port mappings per host</li>
-      <li>Multi-datacenter support with location templates</li>
-      <li>Real-time connection status tracking</li>
-      <li>Start/stop individual ports or entire services</li>
-      <li>Auto-retry on connection failure</li>
-      <li>Kill blocking processes on ports</li>
-      <li>Configuration import/export</li>
-      <li>Detailed logging per port</li>
-    </ul>
-    
-    <h2>Status Indicators:</h2>
-    <ul>
-      <li>🔵 Connecting - Process started</li>
-      <li>🟡 Authenticating - Authentication in progress</li>
-      <li>🟢 Ready - Connection established</li>
-      <li>🔴 Error - Connection failed</li>
-      <li>🟠 Timeout - Connection timeout</li>
-      <li>🟠 Port Busy - Port already in use</li>
-      <li>🔄 Restarting - Auto-retry in progress</li>
-      <li>🟣 Disconnected - Connection dropped</li>
-    </ul>
+        <p>Manage SSH port forwarding with ease.</p>
+        <ul>
+            <li>Hierarchical service and host management</li>
+            <li>Multi-location datacenter support</li>
+            <li>Real-time process monitoring</li>
+            <li>Configuration import/export</li>
+            <li>Automatic retry on failure</li>
+        </ul>
     ]]></description>
-
-    <change-notes><![CDATA[
-    <h2>Version 1.0.0</h2>
-    <ul>
-      <li>Initial release</li>
-      <li>Service and host management</li>
-      <li>Multi-datacenter support</li>
-      <li>Real-time status tracking</li>
-      <li>Configuration import/export</li>
-    </ul>
-    ]]></change-notes>
-
-    <!-- Product and plugin compatibility requirements -->
+    
     <depends>com.intellij.modules.platform</depends>
-
+    
+    <!-- Application-level services -->
     <extensions defaultExtensionNs="com.intellij">
+        <!-- Settings Service -->
+        <applicationService 
+            serviceImplementation="com.mcc.portforwarder.services.MCCSettings"/>
+        
+        <!-- Storage Service -->
+        <applicationService 
+            serviceImplementation="com.mcc.portforwarder.services.MCCStorage"/>
+        
+        <!-- Project-level Service -->
+        <projectService 
+            serviceImplementation="com.mcc.portforwarder.services.MCCService"/>
+        
         <!-- Tool Window -->
         <toolWindow
-                id="MCCPortForwarder"
-                anchor="right"
-                icon="/icons/toolWindowIcon.svg"
-                factoryClass="com.mcc.portforwarder.toolwindow.MCCToolWindowFactory"/>
-
-        <!-- Application Services -->
-        <applicationService
-                serviceImplementation="com.mcc.portforwarder.services.MCCPortForwarderService"/>
-        <applicationService
-                serviceImplementation="com.mcc.portforwarder.services.MCCSettingsService"/>
+            id="MCCPortForwarder"
+            anchor="right"
+            factoryClass="com.mcc.portforwarder.toolwindow.MCCToolWindowFactory"
+            icon="AllIcons.Toolwindows.ToolWindowRun"/>
     </extensions>
 </idea-plugin>
-

@@ -86,29 +86,33 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             // List of datacenters
                             if !viewModel.settingsService.datacenters.isEmpty {
-                                VStack(spacing: 4) {
-                                    ForEach(viewModel.settingsService.datacenters, id: \.self) { dc in
-                                        HStack {
-                                            Text(dc)
-                                                .font(.system(size: 12, design: .monospaced))
-                                                .padding(.horizontal, 8)
-                                                .padding(.vertical, 4)
-                                                .background(Color.blue.opacity(0.1))
-                                                .cornerRadius(4)
-                                            
-                                            Spacer()
-                                            
-                                            Button(action: {
-                                                viewModel.settingsService.removeDatacenter(dc)
-                                            }) {
-                                                Image(systemName: "xmark.circle.fill")
-                                                    .foregroundColor(.secondary)
+                                ScrollView {
+                                    VStack(spacing: 4) {
+                                        ForEach(viewModel.settingsService.datacenters, id: \.self) { dc in
+                                            HStack {
+                                                Text(dc)
+                                                    .font(.system(size: 12, design: .monospaced))
+                                                    .padding(.horizontal, 8)
+                                                    .padding(.vertical, 4)
+                                                    .background(Color.blue.opacity(0.1))
+                                                    .cornerRadius(4)
+                                                
+                                                Spacer()
+                                                
+                                                Button(action: {
+                                                    viewModel.settingsService.removeDatacenter(dc)
+                                                }) {
+                                                    Image(systemName: "xmark.circle.fill")
+                                                        .foregroundColor(.secondary)
+                                                }
+                                                .buttonStyle(.plain)
                                             }
-                                            .buttonStyle(.plain)
+                                            .padding(.trailing, 8) // Отступ справа для скроллбара
                                         }
                                     }
+                                    .padding(8)
                                 }
-                                .padding(8)
+                                .frame(maxHeight: 150) // Ограничение высоты для скролла
                                 .background(Color.secondary.opacity(0.05))
                                 .cornerRadius(6)
                             } else {

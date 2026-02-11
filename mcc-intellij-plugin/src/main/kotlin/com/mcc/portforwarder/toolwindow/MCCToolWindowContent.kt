@@ -168,8 +168,18 @@ class MCCToolWindowContent(private val project: Project) {
         toolbar.add(JSeparator(SwingConstants.VERTICAL))
         toolbar.add(Box.createHorizontalStrut(10))
         
+        // Add Service button
+        val addServiceButton = JButton("➕ Add Service")
+        addServiceButton.toolTipText = "Add new service"
+        addServiceButton.addActionListener {
+            showAddServiceDialog()
+        }
+        toolbar.add(addServiceButton)
+        
+        toolbar.add(Box.createHorizontalStrut(5))
+        
         // Add Test Data button
-        val testDataButton = JButton("➕ Add Test Data")
+        val testDataButton = JButton("🧪 Add Test Data")
         testDataButton.toolTipText = "Add sample service for testing"
         testDataButton.addActionListener {
             addTestData()
@@ -515,6 +525,16 @@ class MCCToolWindowContent(private val project: Project) {
         
         popupMenu.addSeparator()
         
+        val editItem = JMenuItem("Edit")
+        editItem.addActionListener { handleEditService() }
+        popupMenu.add(editItem)
+        
+        val deleteItem = JMenuItem("Delete")
+        deleteItem.addActionListener { handleDeleteService() }
+        popupMenu.add(deleteItem)
+        
+        popupMenu.addSeparator()
+        
         val killItem = JMenuItem("Kill Process on Port")
         killItem.addActionListener { handleKillProcess() }
         popupMenu.add(killItem)
@@ -549,26 +569,37 @@ class MCCToolWindowContent(private val project: Project) {
                     // Enable/disable menu items based on node type and state
                     when (data?.type) {
                         TreeNodeType.PORT -> {
+                            startItem.isVisible = true
+                            stopItem.isVisible = true
+                            editItem.isVisible = false
+                            deleteItem.isVisible = false
+                            killItem.isVisible = true
+                            logsItem.isVisible = true
+                            
                             startItem.isEnabled = data.state != ProcessState.READY
                             stopItem.isEnabled = data.state != ProcessState.STOPPED
-                            killItem.isEnabled = true
-                            logsItem.isEnabled = true
                         }
                         TreeNodeType.HOST -> {
-                            startItem.isEnabled = true
+                            startItem.isVisible = true
+                            stopItem.isVisible = true
+                            editItem.isVisible = false
+                            deleteItem.isVisible = false
+                            killItem.isVisible = false
+                            logsItem.isVisible = false
+                            
                             startItem.text = "Start All Ports"
-                            stopItem.isEnabled = true
                             stopItem.text = "Stop All Ports"
-                            killItem.isEnabled = false
-                            logsItem.isEnabled = false
                         }
                         TreeNodeType.SERVICE -> {
-                            startItem.isEnabled = true
+                            startItem.isVisible = true
+                            stopItem.isVisible = true
+                            editItem.isVisible = true
+                            deleteItem.isVisible = true
+                            killItem.isVisible = false
+                            logsItem.isVisible = false
+                            
                             startItem.text = "Start Service"
-                            stopItem.isEnabled = true
                             stopItem.text = "Stop Service"
-                            killItem.isEnabled = false
-                            logsItem.isEnabled = false
                         }
                         else -> return
                     }
@@ -701,6 +732,105 @@ class MCCToolWindowContent(private val project: Project) {
         val path = tree.selectionPath ?: return null
         val node = path.lastPathComponent as? DefaultMutableTreeNode ?: return null
         return node.userObject as? TreeNodeData
+    }
+    
+    private fun showAddServiceDialog() {
+        val panel = JPanel()
+        panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
+        panel.border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        
+        panel.add(JLabel("Service Name:"))
+        val nameField = JTextField(30)
+        panel.add(nameField)
+        
+        val dialog = object : com.intellij.openapi.ui.DialogWrapper(project) {
+            init {
+                title = "Add Service"
+                init()
+            }
+            
+            override fun createCenterPanel() = panel
+        }
+        
+        if (dialog.showAndGet()) {
+            val name = nameField.text.trim()
+            if (name.isEmpty()) {
+                Messages.showErrorDialog(project, "Service name cannot be empty", "Error")
+                return
+            }
+            
+            val newService = com.mcc.portforwarder.models.Service(name = name)
+            service.addService(newService)
+            
+            Messages.showInfoMessage(
+                project,
+                "Service '${name}' created successfully!\n\nYou can now add hosts to this service.",
+                "Service Created"
+            )
+        }
+    }
+    
+    private fun handleEditService() {
+        val selected = getSelectedNodeData() ?: return
+        if (selected.type != TreeNodeType.SERVICE) return
+        
+        val svc = service.services.value.find { it.id == selected.serviceId } ?: return
+        
+        val panel = JPanel()
+        panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
+        panel.border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        
+        panel.add(JLabel("Service Name:"))
+        val nameField = JTextField(svc.name, 30)
+        panel.add(nameField)
+        
+        val dialog = object : com.intellij.openapi.ui.DialogWrapper(project) {
+            init {
+                title = "Edit Service"
+                init()
+            }
+            
+            override fun createCenterPanel() = panel
+        }
+        
+        if (dialog.showAndGet()) {
+            val newName = nameField.text.trim()
+            if (newName.isEmpty()) {
+                Messages.showErrorDialog(project, "Service name cannot be empty", "Error")
+                return
+            }
+            
+            val updatedService = svc.copy(name = newName)
+            service.updateService(updatedService)
+            
+            Messages.showInfoMessage(project, "Service updated successfully!", "Success")
+        }
+    }
+    
+    private fun handleDeleteService() {
+        val selected = getSelectedNodeData() ?: return
+        if (selected.type != TreeNodeType.SERVICE) return
+        
+        val svc = service.services.value.find { it.id == selected.serviceId } ?: return
+        
+        val result = Messages.showYesNoDialog(
+            project,
+            "Delete service '${svc.name}'?\n\nThis will stop all running ports and remove the service.",
+            "Delete Service",
+            Messages.getWarningIcon()
+        )
+        
+        if (result == Messages.YES) {
+            // Stop all ports first
+            svc.hosts.forEach { host ->
+                host.compatiblePorts.forEach { port ->
+                    service.stopPort(host, port)
+                }
+            }
+            
+            service.deleteService(svc)
+            Messages.showInfoMessage(project, "Service '${svc.name}' deleted successfully!", "Success")
+        }
     }
     
     // Data class to store node information

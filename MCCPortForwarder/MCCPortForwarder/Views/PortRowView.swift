@@ -71,12 +71,13 @@ struct PortRowView: View {
             
             // Toggle button
             Button(action: onToggle) {
-                Image(systemName: state == .running ? "stop.circle.fill" : "play.circle.fill")
+                let isActive = state.isActive || state == .ready
+                Image(systemName: isActive ? "stop.circle.fill" : "play.circle.fill")
                     .font(.system(size: 13))
-                    .foregroundColor(state == .running ? .red : .green)
+                    .foregroundColor(isActive ? .red : .green)
             }
             .buttonStyle(.plain)
-            .help(state == .running ? "Stop this port" : "Start this port")
+            .help(state.isActive || state == .ready ? "Stop this port" : "Start this port")
         }
         .padding(.vertical, 3)
         .padding(.horizontal, 12)
@@ -85,31 +86,47 @@ struct PortRowView: View {
     
     private var statusColor: Color {
         switch state {
-        case .running:
-            return .green
         case .stopped:
             return .gray
+        case .connecting:
+            return .blue
+        case .authenticating:
+            return .yellow
+        case .ready:
+            return .green
         case .error:
             return .red
+        case .timeout:
+            return .orange
         case .portInUse:
             return .orange
         case .restarting:
             return .yellow
+        case .disconnected:
+            return .purple
         }
     }
     
     private var stateTextColor: Color {
         switch state {
-        case .running:
-            return .green
         case .stopped:
             return .secondary
+        case .connecting:
+            return .blue
+        case .authenticating:
+            return .yellow
+        case .ready:
+            return .green
         case .error:
             return .red
+        case .timeout:
+            return .orange
         case .portInUse:
             return .orange
         case .restarting:
             return .yellow
+        case .disconnected:
+            return .purple
         }
     }
 }

@@ -8,13 +8,20 @@ import Combine
 
 final class ProcessService: ObservableObject {
     
+    // MARK: - Internal State
+    
+    private enum InternalState {
+        case running
+        case stopped
+    }
+    
     // MARK: - Process Info
     
     private struct ProcessInfo {
         let process: Process
         let outputPipe: Pipe
         let errorPipe: Pipe
-        var state: ProcessState
+        var state: InternalState
     }
     
     // MARK: - Properties
@@ -204,7 +211,26 @@ final class ProcessService: ObservableObject {
     
     func getHostState(_ hostId: UUID) -> ProcessState {
         queue.sync {
-            processes[hostId]?.state ?? .stopped
+            guard let processInfo = processes[hostId] else {
+                return .stopped
+            }
+            // Convert internal state to external ProcessState
+            // ProcessService only knows running or stopped, detailed states managed by AppViewModel
+            switch processInfo.state {
+            case .running:
+                return processInfo.process.isRunning ? .connecting : .stopped
+            case .stopped:
+                return .stopped
+            }
+        }
+    }
+    
+    func isProcessRunning(_ hostId: UUID) -> Bool {
+        queue.sync {
+            if let processInfo = processes[hostId] {
+                return processInfo.process.isRunning
+            }
+            return false
         }
     }
     
@@ -227,7 +253,7 @@ final class ProcessService: ObservableObject {
             if var info = self.processes[hostId] {
                 let exitCode = process.terminationStatus
                 let terminationReason = process.terminationReason
-                info.state = exitCode == 0 ? .stopped : .error
+                info.state = .stopped
                 self.processes[hostId] = info
                 
                 // Log termination
@@ -295,7 +321,7 @@ final class ProcessService: ObservableObject {
         if isError {
             queue.async(flags: .barrier) { [weak self] in
                 if var info = self?.processes[hostId] {
-                    info.state = .error
+                    info.state = .stopped
                     self?.processes[hostId] = info
                 }
             }

@@ -300,7 +300,9 @@ struct ContentView: View {
         for host in service.hosts {
             for port in host.compatiblePorts {
                 let processId = host.processId(for: port)
-                if viewModel.hostStates[processId] == .running {
+                let state = viewModel.hostStates[processId] ?? .stopped
+                // Count only ready connections
+                if state == .ready {
                     count += 1
                 }
             }

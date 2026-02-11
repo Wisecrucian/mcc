@@ -35,6 +35,7 @@ final class AppViewModel: ObservableObject {
     // MARK: - State Tracking
     
     private var stateTimer: Timer?
+    private var processStartTimes: [UUID: Date] = [:]  // Track when each process started
     // Removed processToHostMapping - not needed anymore, processId is already unique per port
     
     // MARK: - Initialization
@@ -51,12 +52,37 @@ final class AppViewModel: ObservableObject {
         processService.onLogOutput = { [weak self] processId, message, isError in
             guard let self = self else { return }
             
-            // processId is unique per port mapping, use it directly
-            // No need to map - logs go to specific port mapping
             DispatchQueue.main.async {
+                // Add log entry
                 self.logService.addLog(hostId: processId, message: message, isError: isError)
+                
+                // Auto-detect state from log message
+                if let newState = ProcessState.fromLogMessage(message) {
+                    self.updateStateFromLog(processId: processId, newState: newState)
+                }
             }
         }
+    }
+    
+    private func updateStateFromLog(processId: UUID, newState: ProcessState) {
+        let currentState = hostStates[processId] ?? .stopped
+        
+        // Don't downgrade from ready to connecting/authenticating
+        if currentState == .ready && (newState == .connecting || newState == .authenticating) {
+            return
+        }
+        
+        // Don't change state if already in error/disconnected (unless new error)
+        if (currentState == .error || currentState == .disconnected) && newState != .error {
+            return
+        }
+        
+        // Update state
+        hostStates[processId] = newState
+        
+        // Log state change
+        appLogService.info("State changed: \(currentState.displayName) → \(newState.displayName)", 
+                          details: "Process: \(processId)")
     }
     
     deinit {
@@ -355,9 +381,9 @@ final class AppViewModel: ObservableObject {
         let state = hostStates[processId] ?? .stopped
         
         switch state {
-        case .stopped, .error, .portInUse:
+        case .stopped, .error, .portInUse, .timeout, .disconnected:
             startPort(host: host, port: port)
-        case .running, .restarting:
+        case .connecting, .authenticating, .ready, .restarting:
             stopPort(host: host, port: port)
         }
     }
@@ -461,10 +487,12 @@ final class AppViewModel: ObservableObject {
             Task { @MainActor [weak self] in
                 switch result {
                 case .success:
-                    self?.hostStates[processId] = .running
+                    // Start with connecting state
+                    self?.hostStates[processId] = .connecting
+                    self?.processStartTimes[processId] = Date()
                     self?.logService.addLog(
                         hostId: processId,
-                        message: "✅ Port \(String(port.fromPort)) → \(String(port.toPort)) started successfully",
+                        message: "🔵 Connecting to \(hostname):\(String(port.fromPort)) → local:\(String(port.toPort))",
                         isError: false
                     )
                     self?.updateHostAggregateState(host)
@@ -507,16 +535,11 @@ final class AppViewModel: ObservableObject {
     private func updateHostAggregateState(_ host: Host) {
         let portStates = host.compatiblePorts.map { hostStates[host.processId(for: $0)] ?? .stopped }
         
-        if portStates.allSatisfy({ $0 == .running }) {
-            hostStates[host.id] = .running
-        } else if portStates.contains(.running) {
-            hostStates[host.id] = .running
-        } else if portStates.contains(.portInUse) {
-            hostStates[host.id] = .portInUse
-        } else if portStates.contains(.error) {
-            hostStates[host.id] = .error
-        } else {
+        // Use priority to determine worst state (highest priority = worst)
+        if portStates.isEmpty {
             hostStates[host.id] = .stopped
+        } else {
+            hostStates[host.id] = portStates.max(by: { $0.priority < $1.priority }) ?? .stopped
         }
     }
     
@@ -564,9 +587,9 @@ final class AppViewModel: ObservableObject {
         )
         
         switch state {
-        case .stopped, .error, .portInUse:
+        case .stopped, .error, .portInUse, .timeout, .disconnected:
             startHost(host)
-        case .running, .restarting:
+        case .connecting, .authenticating, .ready, .restarting:
             stopHostAllPorts(host)
         }
     }
@@ -574,27 +597,28 @@ final class AppViewModel: ObservableObject {
     // MARK: - State Queries
     
     func getServiceState(_ service: Service) -> ProcessState {
-        // Get states of direct hosts
-        var states = service.hosts.map { hostStates[$0.id] ?? .stopped }
+        var allStates: [ProcessState] = []
         
-        // Add states from child services
+        // Collect states from all ports of all hosts
+        for host in service.hosts {
+            for port in host.compatiblePorts {
+                let processId = host.processId(for: port)
+                let state = hostStates[processId] ?? .stopped
+                allStates.append(state)
+            }
+        }
+        
+        // Add states from child services recursively
         for child in service.childServices {
-            states.append(getServiceState(child))
+            allStates.append(getServiceState(child))
         }
         
-        if states.isEmpty {
+        if allStates.isEmpty {
             return .stopped
         }
         
-        if states.allSatisfy({ $0 == .running }) {
-            return .running
-        } else if states.contains(.running) {
-            return .running
-        } else if states.contains(.error) {
-            return .error
-        } else {
-            return .stopped
-        }
+        // Return worst state based on priority
+        return allStates.max(by: { $0.priority < $1.priority }) ?? .stopped
     }
     
     func getHostState(_ hostId: UUID) -> ProcessState {
@@ -629,13 +653,49 @@ final class AppViewModel: ObservableObject {
                 // Update state for each port
                 for port in host.compatiblePorts {
                     let processId = host.processId(for: port)
-                    let state = processService.getHostState(processId)
-                    hostStates[processId] = state
+                    let currentState = hostStates[processId] ?? .stopped
+                    let isRunning = processService.isProcessRunning(processId)
+                    
+                    // Update state based on process status
+                    if !isRunning {
+                        // Process stopped
+                        if currentState == .ready {
+                            hostStates[processId] = .disconnected
+                        } else if currentState.isActive && currentState != .error {
+                            // Was active but stopped - set to stopped unless it's an error
+                            hostStates[processId] = .stopped
+                        }
+                        // Clean up tracking
+                        processStartTimes.removeValue(forKey: processId)
+                    } else {
+                        // Process is running - check for timeout
+                        checkForTimeout(processId: processId, currentState: currentState)
+                    }
                 }
                 // Update aggregate host state
                 updateHostAggregateState(host)
             }
             updateHostStatesRecursive(service.childServices)
+        }
+    }
+    
+    private func checkForTimeout(processId: UUID, currentState: ProcessState) {
+        // Only check timeout for connecting/authenticating states
+        guard currentState == .connecting || currentState == .authenticating else { return }
+        guard let startTime = processStartTimes[processId] else { return }
+        
+        // Get timeout from settings (use retry delay * 2 as timeout)
+        let timeoutSeconds = Double(settingsService.getRetryDelay() * 2)
+        let elapsed = Date().timeIntervalSince(startTime)
+        
+        if elapsed > timeoutSeconds {
+            hostStates[processId] = .timeout
+            logService.addLog(
+                hostId: processId,
+                message: "🟠 Connection timeout after \(Int(elapsed)) seconds",
+                isError: true
+            )
+            processStartTimes.removeValue(forKey: processId)
         }
     }
     

@@ -77,7 +77,7 @@ struct ServiceRowView: View {
                 .help("Edit service")
                 
                 // Start/Stop buttons
-                if state == .running {
+                if state.isActive || state == .ready {
                     Button("Stop") {
                         onStop()
                     }
@@ -176,14 +176,22 @@ struct ServiceRowView: View {
         switch state {
         case .stopped:
             return .gray
-        case .running:
+        case .connecting:
+            return .blue
+        case .authenticating:
+            return .yellow
+        case .ready:
             return .green
         case .error:
             return .red
+        case .timeout:
+            return .orange
         case .portInUse:
             return .orange
         case .restarting:
             return .yellow
+        case .disconnected:
+            return .purple
         }
     }
 }

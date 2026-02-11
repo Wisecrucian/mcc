@@ -755,6 +755,11 @@ final class AppViewModel: ObservableObject {
                         message: "✅ \(result.message)",
                         isError: false
                     )
+                    
+                    // Update status to stopped after killing the blocking process
+                    self.hostStates[processId] = .stopped
+                    self.updateHostAggregateState(host)
+                    self.appLogService.info("Port freed. Ready to start.", details: "Port: \(port)")
                 } else {
                     self.appLogService.error("Failed to kill process on port \(port)", details: result.message)
                     self.logService.addLog(
@@ -775,6 +780,11 @@ final class AppViewModel: ObservableObject {
                                         message: "⚠️ Force killed: \(forceResult.message)",
                                         isError: false
                                     )
+                                    
+                                    // Update status to stopped after force killing
+                                    self.hostStates[processId] = .stopped
+                                    self.updateHostAggregateState(host)
+                                    self.appLogService.info("Port freed (force). Ready to start.", details: "Port: \(port)")
                                 }
                             }
                         }

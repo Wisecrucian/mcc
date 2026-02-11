@@ -957,7 +957,7 @@ final class AppViewModel: ObservableObject {
     
     func exportConfiguration() {
         let config = ConfigurationExport(
-            services: services,
+            services: services.map { ConfigurationExport.ServiceExport(from: $0) },
             settings: ConfigurationExport.SettingsExport(
                 command: settingsService.getCommand(),
                 loginCommand: settingsService.getLoginCommand(),
@@ -1029,9 +1029,9 @@ final class AppViewModel: ObservableObject {
                     self.appLogService.info("Stopping all running services...")
                     self.stopAllServices()
                     
-                    // Import services
+                    // Import services (convert from export format, generating new UUIDs)
                     self.appLogService.info("Importing services...")
-                    self.services = config.services
+                    self.services = config.services.map { $0.toService() }
                     self.saveServices()
                     
                     // Import settings

@@ -1,14 +1,20 @@
 package com.mcc.portforwarder.toolwindow
 
+import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
+import com.intellij.openapi.fileChooser.FileChooserFactory
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.Messages
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.Tree
+import com.mcc.portforwarder.models.*
 import com.mcc.portforwarder.services.MCCPortForwarderService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import java.awt.BorderLayout
+import java.io.File
 import javax.swing.*
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
@@ -41,16 +47,25 @@ class MCCToolWindowContent(private val project: Project) {
     }
     
     fun getContent(): JComponent {
-        val panel = JPanel()
-        panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
+        val panel = JPanel(BorderLayout())
         
         // Toolbar
         val toolbar = createToolbar()
-        panel.add(toolbar)
+        panel.add(toolbar, BorderLayout.NORTH)
         
-        // Tree
+        // Tree with message
+        val centerPanel = JPanel(BorderLayout())
         val scrollPane = JBScrollPane(tree)
-        panel.add(scrollPane)
+        centerPanel.add(scrollPane, BorderLayout.CENTER)
+        
+        // Add helper text when empty
+        if (service.services.value.isEmpty()) {
+            val helpLabel = JLabel("<html><center>No services configured<br><br>Click 'Add Test Data' to get started<br>or 'Import' to load configuration</center></html>")
+            helpLabel.horizontalAlignment = SwingConstants.CENTER
+            centerPanel.add(helpLabel, BorderLayout.SOUTH)
+        }
+        
+        panel.add(centerPanel, BorderLayout.CENTER)
         
         return panel
     }
@@ -58,28 +73,101 @@ class MCCToolWindowContent(private val project: Project) {
     private fun createToolbar(): JComponent {
         val toolbar = JPanel()
         toolbar.layout = BoxLayout(toolbar, BoxLayout.X_AXIS)
+        toolbar.border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
         
-        val addServiceButton = JButton("Add Service")
-        addServiceButton.addActionListener {
-            // TODO: Show add service dialog
+        // Add Test Data button
+        val testDataButton = JButton("Add Test Data")
+        testDataButton.toolTipText = "Add sample service for testing"
+        testDataButton.addActionListener {
+            addTestData()
         }
-        toolbar.add(addServiceButton)
+        toolbar.add(testDataButton)
+        
+        toolbar.add(Box.createHorizontalStrut(5))
+        
+        // Import button
+        val importButton = JButton("Import")
+        importButton.toolTipText = "Import configuration from JSON file"
+        importButton.addActionListener {
+            importConfiguration()
+        }
+        toolbar.add(importButton)
         
         toolbar.add(Box.createHorizontalGlue())
         
-        val startAllButton = JButton("Start All")
-        startAllButton.addActionListener {
-            // TODO: Start all services
+        // Settings button
+        val settingsButton = JButton("Settings")
+        settingsButton.addActionListener {
+            showSettings()
         }
-        toolbar.add(startAllButton)
-        
-        val stopAllButton = JButton("Stop All")
-        stopAllButton.addActionListener {
-            // TODO: Stop all services
-        }
-        toolbar.add(stopAllButton)
+        toolbar.add(settingsButton)
         
         return toolbar
+    }
+    
+    private fun addTestData() {
+        val testService = com.mcc.portforwarder.models.Service(
+            name = "Test Service"
+        )
+        
+        val location1 = LocationMapping(datacenter = "dc1", localPort = 9001)
+        val location2 = LocationMapping(datacenter = "dc2", localPort = 9002)
+        
+        val testHost = Host(
+            name = "Test Host",
+            hostnameTemplate = "test.example.{location}.com",
+            remotePort = 8080,
+            locations = listOf(location1, location2)
+        )
+        
+        testService.hosts.add(testHost)
+        service.addService(testService)
+        
+        Messages.showInfoMessage(
+            "Test service added successfully!\n\nService: ${testService.name}\nHost: ${testHost.name}\nPorts: 8080→9001 (dc1), 8080→9002 (dc2)",
+            "Test Data Added"
+        )
+    }
+    
+    private fun importConfiguration() {
+        val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json")
+        descriptor.title = "Select Configuration File"
+        descriptor.description = "Choose a JSON configuration file to import"
+        
+        val chooser = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null)
+        val files = chooser.choose(project)
+        
+        if (files.isNotEmpty()) {
+            try {
+                val file = File(files[0].path)
+                val content = file.readText()
+                // TODO: Parse and import JSON configuration
+                Messages.showInfoMessage("Import from JSON not yet implemented.\nPlease use 'Add Test Data' for now.", "Import")
+            } catch (e: Exception) {
+                Messages.showErrorDialog("Failed to import configuration: ${e.message}", "Import Error")
+            }
+        }
+    }
+    
+    private fun showSettings() {
+        val settingsService = com.mcc.portforwarder.services.MCCSettingsService.getInstance()
+        val settings = settingsService.getSettings()
+        
+        val message = """
+            Current Settings:
+            
+            Command: ${settings.command}
+            Login Command: ${settings.loginCommand}
+            Logout Command: ${settings.logoutCommand}
+            
+            Retry Enabled: ${settings.retryEnabled}
+            Retry Attempts: ${settings.retryAttempts}
+            Retry Delay: ${settings.retryDelay}s
+            
+            Datacenters: ${settings.datacenters.joinToString(", ")}
+        """.trimIndent()
+        
+        Messages.showInfoMessage(message, "Settings")
     }
     
     private fun updateTree() {

@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 struct LogViewerView: View {
     
@@ -67,6 +68,16 @@ struct LogViewerView: View {
                 .toggleStyle(.switch)
                 .controlSize(.small)
             
+            Button(action: copyAllLogs) {
+                HStack(spacing: 4) {
+                    Image(systemName: "doc.on.doc")
+                    Text("Copy")
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help("Copy all logs to clipboard")
+            
             Button("Clear") {
                 logService.clearLogs(hostId: hostId)
             }
@@ -95,6 +106,19 @@ struct LogViewerView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+    
+    // MARK: - Actions
+    
+    private func copyAllLogs() {
+        let logs = logService.getLogs(hostId: hostId)
+        let logsText = logs.map { entry in
+            "\(entry.formattedTimestamp) [\(entry.isError ? "ERROR" : "INFO")] \(entry.message)"
+        }.joined(separator: "\n")
+        
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(logsText, forType: .string)
     }
 }
 

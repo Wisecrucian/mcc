@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 struct AppLogViewerView: View {
     
@@ -60,6 +61,16 @@ struct AppLogViewerView: View {
                 
                 Spacer()
                 
+                Button(action: copyAllLogs) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.on.doc")
+                        Text("Copy All")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Copy all logs to clipboard")
+                
                 Button("Clear Logs") {
                     appLogService.clear()
                 }
@@ -76,6 +87,20 @@ struct AppLogViewerView: View {
             .padding(.vertical, 12)
         }
         .frame(minWidth: 700, minHeight: 500)
+    }
+    
+    private func copyAllLogs() {
+        let logsText = appLogService.logs.map { entry in
+            var text = "\(entry.formattedTimestamp) \(entry.level.emoji) \(entry.message)"
+            if let details = entry.details {
+                text += "\n  Details: \(details)"
+            }
+            return text
+        }.joined(separator: "\n")
+        
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(logsText, forType: .string)
     }
 }
 
@@ -103,6 +128,7 @@ struct AppLogEntryRow: View {
                 Text(entry.message)
                     .font(.system(size: 11))
                     .foregroundColor(colorForLevel(entry.level))
+                    .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                 
                 Spacer()
@@ -122,6 +148,7 @@ struct AppLogEntryRow: View {
                 Text(details)
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(.secondary)
+                    .textSelection(.enabled)
                     .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.secondary.opacity(0.1))

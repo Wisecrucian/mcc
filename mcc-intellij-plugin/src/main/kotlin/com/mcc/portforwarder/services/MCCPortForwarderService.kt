@@ -13,8 +13,8 @@ import java.util.concurrent.ConcurrentHashMap
 class MCCPortForwarderService {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
-    private val _services = MutableStateFlow<List<Service>>(emptyList())
-    val services: StateFlow<List<Service>> = _services
+    private val _services = MutableStateFlow<List<com.mcc.portforwarder.models.Service>>(emptyList())
+    val services: StateFlow<List<com.mcc.portforwarder.models.Service>> = _services
     
     private val _portStates = MutableStateFlow<Map<UUID, ProcessState>>(emptyMap())
     val portStates: StateFlow<Map<UUID, ProcessState>> = _portStates
@@ -29,17 +29,17 @@ class MCCPortForwarderService {
         startStateMonitoring()
     }
 
-    fun addService(service: Service) {
+    fun addService(service: com.mcc.portforwarder.models.Service) {
         _services.value = _services.value + service
         saveToStorage()
     }
 
-    fun updateService(service: Service) {
+    fun updateService(service: com.mcc.portforwarder.models.Service) {
         _services.value = _services.value.map { if (it.id == service.id) service else it }
         saveToStorage()
     }
 
-    fun deleteService(service: Service) {
+    fun deleteService(service: com.mcc.portforwarder.models.Service) {
         _services.value = _services.value.filter { it.id != service.id }
         saveToStorage()
     }

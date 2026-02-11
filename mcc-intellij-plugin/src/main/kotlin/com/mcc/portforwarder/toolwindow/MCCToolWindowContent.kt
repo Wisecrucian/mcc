@@ -86,17 +86,17 @@ class MCCToolWindowContent(private val project: Project) {
         val root = treeModel.root as DefaultMutableTreeNode
         root.removeAllChildren()
         
-        service.services.value.forEach { service ->
-            val serviceNode = DefaultMutableTreeNode(service.name)
+        service.services.value.forEach { svc ->
+            val serviceNode = DefaultMutableTreeNode(svc.name)
             root.add(serviceNode)
             
-            service.hosts.forEach { host ->
+            svc.hosts.forEach { host ->
                 val hostNode = DefaultMutableTreeNode("${host.name} (${host.compatiblePorts.size} ports)")
                 serviceNode.add(hostNode)
                 
                 host.compatiblePorts.forEach { port ->
                     val processId = host.processId(port)
-                    val state = this.service.getState(processId)
+                    val state = service.getState(processId)
                     val portNode = DefaultMutableTreeNode(
                         "${state.emoji} ${port.fromPort}→${port.toPort} [${state.displayName}]"
                     )

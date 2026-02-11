@@ -14,8 +14,6 @@ struct PortRowView: View {
     let onLogs: () -> Void
     let onKillPort: (() -> Void)?
     
-    @State private var showingKillConfirm = false
-    
     var body: some View {
         HStack(spacing: 8) {
             // Status indicator
@@ -62,9 +60,7 @@ struct PortRowView: View {
             
             // Kill process button
             if let onKillPort = onKillPort {
-                Button(action: {
-                    showingKillConfirm = true
-                }) {
+                Button(action: onKillPort) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 11))
                         .foregroundColor(.red.opacity(0.7))
@@ -85,21 +81,6 @@ struct PortRowView: View {
         .padding(.vertical, 3)
         .padding(.horizontal, 12)
         .padding(.leading, 24)
-        .id(port.id) // Stable identity to prevent view recreation
-        .confirmationDialog(
-            "Kill process on local port \(port.toPort)?",
-            isPresented: $showingKillConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Kill Process", role: .destructive) {
-                onKillPort?()
-            }
-            Button("Cancel", role: .cancel) {
-                // Explicit cancel action
-            }
-        } message: {
-            Text(verbatim: "This will terminate any process using local port \(String(port.toPort))")
-        }
     }
     
     private var statusColor: Color {

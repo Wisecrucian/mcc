@@ -15,7 +15,7 @@ struct HostRowView: View {
     let onDelete: () -> Void
     let onKillPort: ((PortMapping) -> Void)?
     
-    @State private var showingKillConfirm: Int? = nil
+    @State private var portToKill: PortMapping? = nil
     let getPortState: (PortMapping) -> ProcessState
     let onTogglePort: (PortMapping) -> Void
     let onShowLogs: (UUID, String) -> Void
@@ -126,12 +126,34 @@ struct HostRowView: View {
                                 onShowLogs(processId, portName)
                             },
                             onKillPort: onKillPort != nil ? {
-                                onKillPort?(port)
+                                portToKill = port
                             } : nil
                         )
                     }
                 }
                 .padding(.top, 4)
+            }
+        }
+        .confirmationDialog(
+            portToKill.map { "Kill process on local port \($0.toPort)?" } ?? "",
+            isPresented: Binding(
+                get: { portToKill != nil },
+                set: { if !$0 { portToKill = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Kill Process", role: .destructive) {
+                if let port = portToKill {
+                    onKillPort?(port)
+                    portToKill = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                portToKill = nil
+            }
+        } message: {
+            if let port = portToKill {
+                Text(verbatim: "This will terminate any process using local port \(String(port.toPort))")
             }
         }
     }

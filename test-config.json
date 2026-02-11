@@ -50,7 +50,7 @@
       ],
       "childServices": [
         {
-          "id": "B2C3D4E5-F6G7-8901-BCDE-F12345678901",
+          "id": "B2C3D4E5-F6A7-8901-BCDE-F12345678901",
           "name": "Monitoring",
           "hosts": [
             {
@@ -72,7 +72,7 @@
       ]
     },
     {
-      "id": "C3D4E5F6-G7H8-9012-CDEF-123456789012",
+      "id": "C3D4E5F6-A7B8-9012-CDEF-123456789012",
       "name": "Development Services",
       "hosts": [
         {

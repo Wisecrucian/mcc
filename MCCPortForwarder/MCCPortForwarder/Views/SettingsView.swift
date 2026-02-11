@@ -34,50 +34,6 @@ struct SettingsView: View {
             
             ScrollView {
                 VStack(spacing: 16) {
-                    // Configuration Import/Export Section
-                    settingsSection(
-                        title: "Configuration Backup",
-                        description: "Export or import your complete configuration (services, hosts, settings)"
-                    ) {
-                        HStack(spacing: 12) {
-                            Button(action: {
-                                dismiss()
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                    viewModel.exportConfiguration()
-                                }
-                            }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "square.and.arrow.up")
-                                    Text("Export Configuration")
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.small)
-                            
-                            Button(action: {
-                                dismiss()
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                    viewModel.importConfiguration()
-                                }
-                            }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "square.and.arrow.down")
-                                    Text("Import Configuration")
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
-                        
-                        Text("💡 Configuration includes all services, hosts, port mappings, and application settings")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                            .padding(6)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.blue.opacity(0.08))
-                            .cornerRadius(4)
-                    }
-                    
                     // Datacenters Section
                     settingsSection(
                         title: "Datacenters",
@@ -86,33 +42,29 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             // List of datacenters
                             if !viewModel.settingsService.datacenters.isEmpty {
-                                ScrollView {
-                                    VStack(spacing: 4) {
-                                        ForEach(viewModel.settingsService.datacenters, id: \.self) { dc in
-                                            HStack {
-                                                Text(dc)
-                                                    .font(.system(size: 12, design: .monospaced))
-                                                    .padding(.horizontal, 8)
-                                                    .padding(.vertical, 4)
-                                                    .background(Color.blue.opacity(0.1))
-                                                    .cornerRadius(4)
-                                                
-                                                Spacer()
-                                                
-                                                Button(action: {
-                                                    viewModel.settingsService.removeDatacenter(dc)
-                                                }) {
-                                                    Image(systemName: "xmark.circle.fill")
-                                                        .foregroundColor(.secondary)
-                                                }
-                                                .buttonStyle(.plain)
+                                VStack(spacing: 4) {
+                                    ForEach(viewModel.settingsService.datacenters, id: \.self) { dc in
+                                        HStack {
+                                            Text(dc)
+                                                .font(.system(size: 12, design: .monospaced))
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 4)
+                                                .background(Color.blue.opacity(0.1))
+                                                .cornerRadius(4)
+                                            
+                                            Spacer()
+                                            
+                                            Button(action: {
+                                                viewModel.settingsService.removeDatacenter(dc)
+                                            }) {
+                                                Image(systemName: "xmark.circle.fill")
+                                                    .foregroundColor(.secondary)
                                             }
-                                            .padding(.trailing, 8) // Отступ справа для скроллбара
+                                            .buttonStyle(.plain)
                                         }
                                     }
-                                    .padding(8)
                                 }
-                                .frame(maxHeight: 150) // Ограничение высоты для скролла
+                                .padding(8)
                                 .background(Color.secondary.opacity(0.05))
                                 .cornerRadius(6)
                             } else {
@@ -231,37 +183,6 @@ struct SettingsView: View {
                             }
                         }
                     }
-                    
-                    // About Section
-                    settingsSection(
-                        title: "About",
-                        description: ""
-                    ) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("Version:")
-                                    .font(.system(size: 12, weight: .medium))
-                                Spacer()
-                                Text(VersionService.shared.getVersion())
-                                    .font(.system(size: 12, design: .monospaced))
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Divider()
-                            
-                            HStack {
-                                Text("Application:")
-                                    .font(.system(size: 12, weight: .medium))
-                                Spacer()
-                                Text("MCC Port Forwarder")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .padding(8)
-                        .background(Color.secondary.opacity(0.05))
-                        .cornerRadius(6)
-                    }
                 }
                 .padding(20)
             }
@@ -311,7 +232,7 @@ struct SettingsView: View {
             }
             .padding(20)
         }
-        .frame(width: 600, height: 720)
+        .frame(width: 600, height: 650)
         .onAppear {
             loadSettings()
         }

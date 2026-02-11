@@ -13,9 +13,6 @@ targets:
     sources:
       - MCCPortForwarder
     
-    resources:
-      - build.number
-    
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.mcc.portforwarder
       MARKETING_VERSION: "1.0.0"

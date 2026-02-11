@@ -56,7 +56,6 @@ struct ContentView: View {
                         }
                     }
                     .padding(.vertical, 8)
-                    .padding(.trailing, 8) // Отступ справа для скроллбара
                 }
             }
             
@@ -254,20 +253,20 @@ struct ContentView: View {
             
             HStack {
                 // Auth buttons
-                Button(action: { viewModel.logout() }) {
+                Button(action: { viewModel.login() }) {
                     HStack(spacing: 4) {
-                        Image(systemName: "arrow.right.square")
-                        Text("Logout")
+                        Image(systemName: "person.badge.key")
+                        Text("Login")
                     }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .disabled(viewModel.isAuthenticating)
                 
-                Button(action: { viewModel.login() }) {
+                Button(action: { viewModel.logout() }) {
                     HStack(spacing: 4) {
-                        Image(systemName: "person.badge.key")
-                        Text("Login")
+                        Image(systemName: "arrow.right.square")
+                        Text("Logout")
                     }
                 }
                 .buttonStyle(.bordered)
@@ -300,9 +299,7 @@ struct ContentView: View {
         for host in service.hosts {
             for port in host.compatiblePorts {
                 let processId = host.processId(for: port)
-                let state = viewModel.hostStates[processId] ?? .stopped
-                // Count only ready connections
-                if state == .ready {
+                if viewModel.hostStates[processId] == .running {
                     count += 1
                 }
             }

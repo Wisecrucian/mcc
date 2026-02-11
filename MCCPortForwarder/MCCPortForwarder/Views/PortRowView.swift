@@ -14,6 +14,8 @@ struct PortRowView: View {
     let onLogs: () -> Void
     let onKillPort: (() -> Void)?
     
+    @State private var showingKillConfirm = false
+    
     var body: some View {
         HStack(spacing: 8) {
             // Status indicator
@@ -60,7 +62,9 @@ struct PortRowView: View {
             
             // Kill process button
             if let onKillPort = onKillPort {
-                Button(action: onKillPort) {
+                Button(action: {
+                    showingKillConfirm = true
+                }) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 11))
                         .foregroundColor(.red.opacity(0.7))
@@ -71,62 +75,57 @@ struct PortRowView: View {
             
             // Toggle button
             Button(action: onToggle) {
-                let isActive = state.isActive || state == .ready
-                Image(systemName: isActive ? "stop.circle.fill" : "play.circle.fill")
+                Image(systemName: state == .running ? "stop.circle.fill" : "play.circle.fill")
                     .font(.system(size: 13))
-                    .foregroundColor(isActive ? .red : .green)
+                    .foregroundColor(state == .running ? .red : .green)
             }
             .buttonStyle(.plain)
-            .help(state.isActive || state == .ready ? "Stop this port" : "Start this port")
+            .help(state == .running ? "Stop this port" : "Start this port")
         }
         .padding(.vertical, 3)
         .padding(.horizontal, 12)
         .padding(.leading, 24)
+        .confirmationDialog(
+            "Kill process on local port \(port.toPort)?",
+            isPresented: $showingKillConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Kill Process", role: .destructive) {
+                onKillPort?()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(verbatim: "This will terminate any process using local port \(String(port.toPort))")
+        }
     }
     
     private var statusColor: Color {
         switch state {
+        case .running:
+            return .green
         case .stopped:
             return .gray
-        case .connecting:
-            return .blue
-        case .authenticating:
-            return .yellow
-        case .ready:
-            return .green
         case .error:
             return .red
-        case .timeout:
-            return .orange
         case .portInUse:
             return .orange
         case .restarting:
             return .yellow
-        case .disconnected:
-            return .purple
         }
     }
     
     private var stateTextColor: Color {
         switch state {
+        case .running:
+            return .green
         case .stopped:
             return .secondary
-        case .connecting:
-            return .blue
-        case .authenticating:
-            return .yellow
-        case .ready:
-            return .green
         case .error:
             return .red
-        case .timeout:
-            return .orange
         case .portInUse:
             return .orange
         case .restarting:
             return .yellow
-        case .disconnected:
-            return .purple
         }
     }
 }

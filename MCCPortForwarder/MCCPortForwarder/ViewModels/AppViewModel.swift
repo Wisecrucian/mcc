@@ -5,8 +5,6 @@
 
 import Foundation
 import Combine
-import AppKit
-import UniformTypeIdentifiers
 
 @MainActor
 final class AppViewModel: ObservableObject {
@@ -35,7 +33,6 @@ final class AppViewModel: ObservableObject {
     // MARK: - State Tracking
     
     private var stateTimer: Timer?
-    private var processStartTimes: [UUID: Date] = [:]  // Track when each process started
     // Removed processToHostMapping - not needed anymore, processId is already unique per port
     
     // MARK: - Initialization
@@ -52,37 +49,12 @@ final class AppViewModel: ObservableObject {
         processService.onLogOutput = { [weak self] processId, message, isError in
             guard let self = self else { return }
             
+            // processId is unique per port mapping, use it directly
+            // No need to map - logs go to specific port mapping
             DispatchQueue.main.async {
-                // Add log entry
                 self.logService.addLog(hostId: processId, message: message, isError: isError)
-                
-                // Auto-detect state from log message
-                if let newState = ProcessState.fromLogMessage(message) {
-                    self.updateStateFromLog(processId: processId, newState: newState)
-                }
             }
         }
-    }
-    
-    private func updateStateFromLog(processId: UUID, newState: ProcessState) {
-        let currentState = hostStates[processId] ?? .stopped
-        
-        // Don't downgrade from ready to connecting/authenticating
-        if currentState == .ready && (newState == .connecting || newState == .authenticating) {
-            return
-        }
-        
-        // Don't change state if already in error/disconnected (unless new error)
-        if (currentState == .error || currentState == .disconnected) && newState != .error {
-            return
-        }
-        
-        // Update state
-        hostStates[processId] = newState
-        
-        // Log state change
-        appLogService.info("State changed: \(currentState.displayName) → \(newState.displayName)", 
-                          details: "Process: \(processId)")
     }
     
     deinit {
@@ -381,9 +353,9 @@ final class AppViewModel: ObservableObject {
         let state = hostStates[processId] ?? .stopped
         
         switch state {
-        case .stopped, .error, .portInUse, .timeout, .disconnected:
+        case .stopped, .error, .portInUse:
             startPort(host: host, port: port)
-        case .connecting, .authenticating, .ready, .restarting:
+        case .running, .restarting:
             stopPort(host: host, port: port)
         }
     }
@@ -487,12 +459,10 @@ final class AppViewModel: ObservableObject {
             Task { @MainActor [weak self] in
                 switch result {
                 case .success:
-                    // Start with connecting state
-                    self?.hostStates[processId] = .connecting
-                    self?.processStartTimes[processId] = Date()
+                    self?.hostStates[processId] = .running
                     self?.logService.addLog(
                         hostId: processId,
-                        message: "🔵 Connecting to \(hostname):\(String(port.fromPort)) → local:\(String(port.toPort))",
+                        message: "✅ Port \(String(port.fromPort)) → \(String(port.toPort)) started successfully",
                         isError: false
                     )
                     self?.updateHostAggregateState(host)
@@ -535,11 +505,16 @@ final class AppViewModel: ObservableObject {
     private func updateHostAggregateState(_ host: Host) {
         let portStates = host.compatiblePorts.map { hostStates[host.processId(for: $0)] ?? .stopped }
         
-        // Use priority to determine worst state (highest priority = worst)
-        if portStates.isEmpty {
-            hostStates[host.id] = .stopped
+        if portStates.allSatisfy({ $0 == .running }) {
+            hostStates[host.id] = .running
+        } else if portStates.contains(.running) {
+            hostStates[host.id] = .running
+        } else if portStates.contains(.portInUse) {
+            hostStates[host.id] = .portInUse
+        } else if portStates.contains(.error) {
+            hostStates[host.id] = .error
         } else {
-            hostStates[host.id] = portStates.max(by: { $0.priority < $1.priority }) ?? .stopped
+            hostStates[host.id] = .stopped
         }
     }
     
@@ -587,9 +562,9 @@ final class AppViewModel: ObservableObject {
         )
         
         switch state {
-        case .stopped, .error, .portInUse, .timeout, .disconnected:
+        case .stopped, .error, .portInUse:
             startHost(host)
-        case .connecting, .authenticating, .ready, .restarting:
+        case .running, .restarting:
             stopHostAllPorts(host)
         }
     }
@@ -597,28 +572,27 @@ final class AppViewModel: ObservableObject {
     // MARK: - State Queries
     
     func getServiceState(_ service: Service) -> ProcessState {
-        var allStates: [ProcessState] = []
+        // Get states of direct hosts
+        var states = service.hosts.map { hostStates[$0.id] ?? .stopped }
         
-        // Collect states from all ports of all hosts
-        for host in service.hosts {
-            for port in host.compatiblePorts {
-                let processId = host.processId(for: port)
-                let state = hostStates[processId] ?? .stopped
-                allStates.append(state)
-            }
-        }
-        
-        // Add states from child services recursively
+        // Add states from child services
         for child in service.childServices {
-            allStates.append(getServiceState(child))
+            states.append(getServiceState(child))
         }
         
-        if allStates.isEmpty {
+        if states.isEmpty {
             return .stopped
         }
         
-        // Return worst state based on priority
-        return allStates.max(by: { $0.priority < $1.priority }) ?? .stopped
+        if states.allSatisfy({ $0 == .running }) {
+            return .running
+        } else if states.contains(.running) {
+            return .running
+        } else if states.contains(.error) {
+            return .error
+        } else {
+            return .stopped
+        }
     }
     
     func getHostState(_ hostId: UUID) -> ProcessState {
@@ -653,49 +627,13 @@ final class AppViewModel: ObservableObject {
                 // Update state for each port
                 for port in host.compatiblePorts {
                     let processId = host.processId(for: port)
-                    let currentState = hostStates[processId] ?? .stopped
-                    let isRunning = processService.isProcessRunning(processId)
-                    
-                    // Update state based on process status
-                    if !isRunning {
-                        // Process stopped
-                        if currentState == .ready {
-                            hostStates[processId] = .disconnected
-                        } else if currentState.isActive && currentState != .error {
-                            // Was active but stopped - set to stopped unless it's an error
-                            hostStates[processId] = .stopped
-                        }
-                        // Clean up tracking
-                        processStartTimes.removeValue(forKey: processId)
-                    } else {
-                        // Process is running - check for timeout
-                        checkForTimeout(processId: processId, currentState: currentState)
-                    }
+                    let state = processService.getHostState(processId)
+                    hostStates[processId] = state
                 }
                 // Update aggregate host state
                 updateHostAggregateState(host)
             }
             updateHostStatesRecursive(service.childServices)
-        }
-    }
-    
-    private func checkForTimeout(processId: UUID, currentState: ProcessState) {
-        // Only check timeout for connecting/authenticating states
-        guard currentState == .connecting || currentState == .authenticating else { return }
-        guard let startTime = processStartTimes[processId] else { return }
-        
-        // Get timeout from settings (use retry delay * 2 as timeout)
-        let timeoutSeconds = Double(settingsService.getRetryDelay() * 2)
-        let elapsed = Date().timeIntervalSince(startTime)
-        
-        if elapsed > timeoutSeconds {
-            hostStates[processId] = .timeout
-            logService.addLog(
-                hostId: processId,
-                message: "🟠 Connection timeout after \(Int(elapsed)) seconds",
-                isError: true
-            )
-            processStartTimes.removeValue(forKey: processId)
         }
     }
     
@@ -755,11 +693,6 @@ final class AppViewModel: ObservableObject {
                         message: "✅ \(result.message)",
                         isError: false
                     )
-                    
-                    // Update status to stopped after killing the blocking process
-                    self.hostStates[processId] = .stopped
-                    self.updateHostAggregateState(host)
-                    self.appLogService.info("Port freed. Ready to start.", details: "Port: \(port)")
                 } else {
                     self.appLogService.error("Failed to kill process on port \(port)", details: result.message)
                     self.logService.addLog(
@@ -780,11 +713,6 @@ final class AppViewModel: ObservableObject {
                                         message: "⚠️ Force killed: \(forceResult.message)",
                                         isError: false
                                     )
-                                    
-                                    // Update status to stopped after force killing
-                                    self.hostStates[processId] = .stopped
-                                    self.updateHostAggregateState(host)
-                                    self.appLogService.info("Port freed (force). Ready to start.", details: "Port: \(port)")
                                 }
                             }
                         }
@@ -1021,135 +949,6 @@ final class AppViewModel: ObservableObject {
         }
         
         return validPaths.joined(separator: ":")
-    }
-    
-    // MARK: - Configuration Import/Export
-    
-    func exportConfiguration() {
-        let config = ConfigurationExport(
-            services: services.map { ConfigurationExport.ServiceExport(from: $0) },
-            settings: ConfigurationExport.SettingsExport(
-                command: settingsService.getCommand(),
-                loginCommand: settingsService.getLoginCommand(),
-                logoutCommand: settingsService.getLogoutCommand(),
-                retryEnabled: settingsService.isRetryEnabled(),
-                retryAttempts: settingsService.getRetryAttempts(),
-                retryDelay: settingsService.getRetryDelay(),
-                datacenters: settingsService.datacenters
-            )
-        )
-        
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.json]
-        savePanel.nameFieldStringValue = "mcc-config-\(dateFormatter.string(from: Date())).json"
-        savePanel.title = "Export Configuration"
-        savePanel.message = "Save your MCCPortForwarder configuration"
-        
-        savePanel.begin { response in
-            guard response == .OK, let url = savePanel.url else { return }
-            
-            Task { @MainActor in
-                do {
-                    let encoder = JSONEncoder()
-                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                    encoder.dateEncodingStrategy = .iso8601
-                    
-                    let data = try encoder.encode(config)
-                    try data.write(to: url)
-                    
-                    self.appLogService.success("Configuration exported to: \(url.path)")
-                } catch {
-                    self.appLogService.error("Failed to export configuration: \(error.localizedDescription)")
-                }
-            }
-        }
-    }
-    
-    func importConfiguration() {
-        appLogService.info("Opening import configuration dialog...")
-        
-        let openPanel = NSOpenPanel()
-        openPanel.allowedContentTypes = [.json]
-        openPanel.allowsMultipleSelection = false
-        openPanel.title = "Import Configuration"
-        openPanel.message = "Select a configuration file to import"
-        
-        openPanel.begin { response in
-            guard response == .OK, let url = openPanel.url else {
-                self.appLogService.info("Import cancelled by user")
-                return
-            }
-            
-            self.appLogService.info("Reading configuration from: \(url.path)")
-            
-            Task { @MainActor in
-                do {
-                    let data = try Data(contentsOf: url)
-                    self.appLogService.info("File read successfully, size: \(data.count) bytes")
-                    
-                    let decoder = JSONDecoder()
-                    decoder.dateDecodingStrategy = .iso8601
-                    
-                    let config = try decoder.decode(ConfigurationExport.self, from: data)
-                    self.appLogService.info("Configuration decoded successfully")
-                    self.appLogService.info("Services count: \(config.services.count)")
-                    self.appLogService.info("Datacenters count: \(config.settings.datacenters.count)")
-                    
-                    // Stop all running processes before importing
-                    self.appLogService.info("Stopping all running services...")
-                    self.stopAllServices()
-                    
-                    // Import services (convert from export format, generating new UUIDs)
-                    self.appLogService.info("Importing services...")
-                    self.services = config.services.map { $0.toService() }
-                    self.saveServices()
-                    
-                    // Import settings
-                    self.appLogService.info("Importing settings...")
-                    self.settingsService.saveCommand(config.settings.command)
-                    self.settingsService.saveLoginCommand(config.settings.loginCommand)
-                    self.settingsService.saveLogoutCommand(config.settings.logoutCommand)
-                    self.settingsService.setRetryEnabled(config.settings.retryEnabled)
-                    self.settingsService.saveRetryAttempts(config.settings.retryAttempts)
-                    self.settingsService.saveRetryDelay(config.settings.retryDelay)
-                    
-                    // Import datacenters (replace all at once)
-                    self.appLogService.info("Importing datacenters: \(config.settings.datacenters.joined(separator: ", "))")
-                    self.settingsService.replaceDatacenters(config.settings.datacenters)
-                    
-                    self.appLogService.success("✅ Configuration imported successfully from: \(url.path)")
-                    self.appLogService.success("Imported \(config.services.count) service(s) and \(config.settings.datacenters.count) datacenter(s)")
-                } catch let error as DecodingError {
-                    self.appLogService.error("❌ Failed to decode configuration: \(error)")
-                    switch error {
-                    case .keyNotFound(let key, let context):
-                        self.appLogService.error("Missing key: \(key.stringValue) at \(context.codingPath)")
-                    case .typeMismatch(let type, let context):
-                        self.appLogService.error("Type mismatch for type: \(type) at \(context.codingPath)")
-                    case .valueNotFound(let type, let context):
-                        self.appLogService.error("Value not found for type: \(type) at \(context.codingPath)")
-                    case .dataCorrupted(let context):
-                        self.appLogService.error("Data corrupted at \(context.codingPath)")
-                    @unknown default:
-                        self.appLogService.error("Unknown decoding error")
-                    }
-                } catch {
-                    self.appLogService.error("❌ Failed to import configuration: \(error.localizedDescription)")
-                }
-            }
-        }
-    }
-    
-    private var dateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd-HHmmss"
-        return formatter
-    }
-    
-    private func stopAllServices() {
-        for service in services {
-            stopServiceRecursive(service)
-        }
     }
 }
 

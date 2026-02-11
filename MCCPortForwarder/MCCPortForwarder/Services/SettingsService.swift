@@ -140,11 +140,6 @@ final class SettingsService: ObservableObject {
         datacenters.contains(name)
     }
     
-    func replaceDatacenters(_ newDatacenters: [String]) {
-        datacenters = newDatacenters
-        saveDatacenters()
-    }
-    
     // MARK: - Reset All
     
     func resetAll() {

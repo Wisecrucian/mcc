@@ -112,35 +112,13 @@ class MCCToolWindowContent(private val project: Project) {
         toolbar.layout = BoxLayout(toolbar, BoxLayout.X_AXIS)
         toolbar.border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
         
-        // Start All button
-        val startAllButton = JButton("▶️ Start All")
-        startAllButton.toolTipText = "Start all services"
-        startAllButton.addActionListener {
-            service.services.value.forEach { svc ->
-                svc.hosts.forEach { host ->
-                    host.compatiblePorts.forEach { port ->
-                        service.startPort(host, port)
-                    }
-                }
-            }
+        // Add Service button
+        val addServiceButton = JButton("➕ Add Service")
+        addServiceButton.toolTipText = "Add new service"
+        addServiceButton.addActionListener {
+            showAddServiceDialog()
         }
-        toolbar.add(startAllButton)
-        
-        toolbar.add(Box.createHorizontalStrut(5))
-        
-        // Stop All button
-        val stopAllButton = JButton("⏹️ Stop All")
-        stopAllButton.toolTipText = "Stop all running services"
-        stopAllButton.addActionListener {
-            service.services.value.forEach { svc ->
-                svc.hosts.forEach { host ->
-                    host.compatiblePorts.forEach { port ->
-                        service.stopPort(host, port)
-                    }
-                }
-            }
-        }
-        toolbar.add(stopAllButton)
+        toolbar.add(addServiceButton)
         
         toolbar.add(Box.createHorizontalStrut(10))
         toolbar.add(JSeparator(SwingConstants.VERTICAL))
@@ -163,48 +141,6 @@ class MCCToolWindowContent(private val project: Project) {
             executeLogoutCommand()
         }
         toolbar.add(logoutButton)
-        
-        toolbar.add(Box.createHorizontalStrut(10))
-        toolbar.add(JSeparator(SwingConstants.VERTICAL))
-        toolbar.add(Box.createHorizontalStrut(10))
-        
-        // Add Service button
-        val addServiceButton = JButton("➕ Add Service")
-        addServiceButton.toolTipText = "Add new service"
-        addServiceButton.addActionListener {
-            showAddServiceDialog()
-        }
-        toolbar.add(addServiceButton)
-        
-        toolbar.add(Box.createHorizontalStrut(5))
-        
-        // Add Test Data button
-        val testDataButton = JButton("🧪 Add Test Data")
-        testDataButton.toolTipText = "Add sample service for testing"
-        testDataButton.addActionListener {
-            addTestData()
-        }
-        toolbar.add(testDataButton)
-        
-        toolbar.add(Box.createHorizontalStrut(5))
-        
-        // Import button
-        val importButton = JButton("📥 Import")
-        importButton.toolTipText = "Import configuration from JSON file"
-        importButton.addActionListener {
-            importConfiguration()
-        }
-        toolbar.add(importButton)
-        
-        toolbar.add(Box.createHorizontalStrut(5))
-        
-        // Export button
-        val exportButton = JButton("📤 Export")
-        exportButton.toolTipText = "Export configuration to JSON file"
-        exportButton.addActionListener {
-            exportConfiguration()
-        }
-        toolbar.add(exportButton)
         
         toolbar.add(Box.createHorizontalGlue())
         
@@ -285,90 +221,8 @@ class MCCToolWindowContent(private val project: Project) {
         }
     }
     
-    private fun exportConfiguration() {
-        val descriptor = FileChooserDescriptorFactory.createSingleFolderDescriptor()
-        descriptor.title = "Select Export Directory"
-        descriptor.description = "Choose where to save the configuration file"
-        
-        val chooser = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null)
-        val files = chooser.choose(project)
-        
-        if (files.isNotEmpty()) {
-            try {
-                val dir = java.io.File(files[0].path)
-                val file = java.io.File(dir, "mcc-config-export.json")
-                
-                val json = service.exportToJson()
-                file.writeText(json)
-                
-                Messages.showInfoMessage(
-                    project,
-                    "Configuration exported successfully!\n\nFile: ${file.absolutePath}\nServices: ${service.services.value.size}",
-                    "Export Successful"
-                )
-            } catch (e: Exception) {
-                Messages.showErrorDialog(project, "Failed to export configuration: ${e.message}", "Export Error")
-            }
-        }
-    }
     
-    private fun addTestData() {
-        println("🔍 [MCCToolWindow] addTestData() called")
-        
-        val testService = com.mcc.portforwarder.models.Service(
-            name = "Test Service"
-        )
-        println("🔍 [MCCToolWindow] Created service: ${testService.name}, id: ${testService.id}")
-        
-        val location1 = LocationMapping(datacenter = "dc1", localPort = 9001)
-        val location2 = LocationMapping(datacenter = "dc2", localPort = 9002)
-        println("🔍 [MCCToolWindow] Created locations: dc1, dc2")
-        
-        val testHost = Host(
-            name = "Test Host",
-            hostnameTemplate = "test.example.{location}.com",
-            remotePort = 8080,
-            locations = listOf(location1, location2)
-        )
-        println("🔍 [MCCToolWindow] Created host: ${testHost.name}, id: ${testHost.id}")
-        
-        testService.hosts.add(testHost)
-        println("🔍 [MCCToolWindow] Added host to service. Service hosts count: ${testService.hosts.size}")
-        
-        service.addService(testService)
-        println("🔍 [MCCToolWindow] Added service. Total services: ${service.services.value.size}")
-        
-        Messages.showInfoMessage(
-            "Test service added successfully!\n\nService: ${testService.name}\nHost: ${testHost.name}\nPorts: 8080→9001 (dc1), 8080→9002 (dc2)",
-            "Test Data Added"
-        )
-    }
     
-    private fun importConfiguration() {
-        val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json")
-        descriptor.title = "Select Configuration File"
-        descriptor.description = "Choose a JSON configuration file to import"
-        
-        val chooser = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null)
-        val files = chooser.choose(project)
-        
-        if (files.isNotEmpty()) {
-            try {
-                val file = File(files[0].path)
-                val content = file.readText()
-                
-                service.importFromJson(content)
-                
-                Messages.showInfoMessage(
-                    project,
-                    "Configuration imported successfully!\n\nNote: Full JSON parsing is not yet implemented.\nUse 'Add Test Data' to add services.",
-                    "Import"
-                )
-            } catch (e: Exception) {
-                Messages.showErrorDialog(project, "Failed to import configuration: ${e.message}", "Import Error")
-            }
-        }
-    }
     
     private fun showSettings() {
         val settingsService = MCCSettingsService.getInstance()

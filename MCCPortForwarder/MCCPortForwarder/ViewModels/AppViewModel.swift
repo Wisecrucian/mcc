@@ -693,6 +693,11 @@ final class AppViewModel: ObservableObject {
                         message: "✅ \(result.message)",
                         isError: false
                     )
+                    
+                    // Stop the host in ProcessService to prevent auto-restart
+                    self.processService.stopHost(processId)
+                    self.hostStates[processId] = .stopped
+                    self.updateHostAggregateState(host)
                 } else {
                     self.appLogService.error("Failed to kill process on port \(port)", details: result.message)
                     self.logService.addLog(
@@ -713,6 +718,11 @@ final class AppViewModel: ObservableObject {
                                         message: "⚠️ Force killed: \(forceResult.message)",
                                         isError: false
                                     )
+                                    
+                                    // Stop the host in ProcessService to prevent auto-restart
+                                    self.processService.stopHost(processId)
+                                    self.hostStates[processId] = .stopped
+                                    self.updateHostAggregateState(host)
                                 }
                             }
                         }

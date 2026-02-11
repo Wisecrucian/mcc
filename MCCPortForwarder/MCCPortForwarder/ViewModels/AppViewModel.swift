@@ -756,7 +756,8 @@ final class AppViewModel: ObservableObject {
                         isError: false
                     )
                     
-                    // Update status to stopped after killing the blocking process
+                    // ✅ Stop the process in ProcessService to prevent auto-restart
+                    self.processService.stopHost(processId)
                     self.hostStates[processId] = .stopped
                     self.updateHostAggregateState(host)
                     self.appLogService.info("Port freed. Ready to start.", details: "Port: \(port)")
@@ -781,7 +782,8 @@ final class AppViewModel: ObservableObject {
                                         isError: false
                                     )
                                     
-                                    // Update status to stopped after force killing
+                                    // ✅ Stop the process in ProcessService to prevent auto-restart
+                                    self.processService.stopHost(processId)
                                     self.hostStates[processId] = .stopped
                                     self.updateHostAggregateState(host)
                                     self.appLogService.info("Port freed (force). Ready to start.", details: "Port: \(port)")

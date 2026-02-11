@@ -11,8 +11,11 @@ repositories {
     mavenCentral()
 }
 
+// Note: Do NOT add kotlin-stdlib or kotlinx-coroutines dependencies!
+// They are already provided by the IntelliJ Platform.
+// Adding them will cause ClassLoader conflicts.
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    // Add only non-Kotlin dependencies here if needed
 }
 
 // Configure Gradle IntelliJ Plugin

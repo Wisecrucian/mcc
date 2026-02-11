@@ -50,48 +50,16 @@
     <extensions defaultExtensionNs="com.intellij">
         <!-- Tool Window -->
         <toolWindow
-                id="MCC Port Forwarder"
+                id="MCCPortForwarder"
                 anchor="right"
                 icon="/icons/toolWindowIcon.svg"
                 factoryClass="com.mcc.portforwarder.toolwindow.MCCToolWindowFactory"/>
 
-        <!-- Application Service -->
+        <!-- Application Services -->
         <applicationService
                 serviceImplementation="com.mcc.portforwarder.services.MCCPortForwarderService"/>
-
-        <!-- Settings -->
-        <applicationConfigurable
-                parentId="tools"
-                instance="com.mcc.portforwarder.settings.MCCSettingsConfigurable"
-                id="com.mcc.portforwarder.settings"
-                displayName="MCC Port Forwarder"/>
+        <applicationService
+                serviceImplementation="com.mcc.portforwarder.services.MCCSettingsService"/>
     </extensions>
-
-    <actions>
-        <!-- Toolbar actions -->
-        <group id="MCCPortForwarder.ToolbarActions" text="MCC Port Forwarder" popup="true">
-            <action id="MCCPortForwarder.StartAll"
-                    class="com.mcc.portforwarder.actions.StartAllAction"
-                    text="Start All Services"
-                    description="Start all configured services"
-                    icon="AllIcons.Actions.Execute"/>
-            <action id="MCCPortForwarder.StopAll"
-                    class="com.mcc.portforwarder.actions.StopAllAction"
-                    text="Stop All Services"
-                    description="Stop all running services"
-                    icon="AllIcons.Actions.Suspend"/>
-            <separator/>
-            <action id="MCCPortForwarder.Login"
-                    class="com.mcc.portforwarder.actions.LoginAction"
-                    text="Login"
-                    description="Execute login command"
-                    icon="AllIcons.Actions.Lightning"/>
-            <action id="MCCPortForwarder.Logout"
-                    class="com.mcc.portforwarder.actions.LogoutAction"
-                    text="Logout"
-                    description="Execute logout command"
-                    icon="AllIcons.Actions.Cancel"/>
-        </group>
-    </actions>
 </idea-plugin>
 

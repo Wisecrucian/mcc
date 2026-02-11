@@ -996,6 +996,8 @@ final class AppViewModel: ObservableObject {
     }
     
     func importConfiguration() {
+        appLogService.info("Opening import configuration dialog...")
+        
         let openPanel = NSOpenPanel()
         openPanel.allowedContentTypes = [.json]
         openPanel.allowsMultipleSelection = false
@@ -1003,25 +1005,37 @@ final class AppViewModel: ObservableObject {
         openPanel.message = "Select a configuration file to import"
         
         openPanel.begin { response in
-            guard response == .OK, let url = openPanel.url else { return }
+            guard response == .OK, let url = openPanel.url else {
+                self.appLogService.info("Import cancelled by user")
+                return
+            }
+            
+            self.appLogService.info("Reading configuration from: \(url.path)")
             
             Task { @MainActor in
                 do {
                     let data = try Data(contentsOf: url)
+                    self.appLogService.info("File read successfully, size: \(data.count) bytes")
                     
                     let decoder = JSONDecoder()
                     decoder.dateDecodingStrategy = .iso8601
                     
                     let config = try decoder.decode(ConfigurationExport.self, from: data)
+                    self.appLogService.info("Configuration decoded successfully")
+                    self.appLogService.info("Services count: \(config.services.count)")
+                    self.appLogService.info("Datacenters count: \(config.settings.datacenters.count)")
                     
                     // Stop all running processes before importing
+                    self.appLogService.info("Stopping all running services...")
                     self.stopAllServices()
                     
                     // Import services
+                    self.appLogService.info("Importing services...")
                     self.services = config.services
                     self.saveServices()
                     
                     // Import settings
+                    self.appLogService.info("Importing settings...")
                     self.settingsService.saveCommand(config.settings.command)
                     self.settingsService.saveLoginCommand(config.settings.loginCommand)
                     self.settingsService.saveLogoutCommand(config.settings.logoutCommand)
@@ -1029,14 +1043,28 @@ final class AppViewModel: ObservableObject {
                     self.settingsService.saveRetryAttempts(config.settings.retryAttempts)
                     self.settingsService.saveRetryDelay(config.settings.retryDelay)
                     
-                    // Import datacenters
-                    for dc in config.settings.datacenters {
-                        self.settingsService.addDatacenter(dc)
-                    }
+                    // Import datacenters (replace all at once)
+                    self.appLogService.info("Importing datacenters: \(config.settings.datacenters.joined(separator: ", "))")
+                    self.settingsService.replaceDatacenters(config.settings.datacenters)
                     
-                    self.appLogService.success("Configuration imported successfully from: \(url.path)")
+                    self.appLogService.success("✅ Configuration imported successfully from: \(url.path)")
+                    self.appLogService.success("Imported \(config.services.count) service(s) and \(config.settings.datacenters.count) datacenter(s)")
+                } catch let error as DecodingError {
+                    self.appLogService.error("❌ Failed to decode configuration: \(error)")
+                    switch error {
+                    case .keyNotFound(let key, let context):
+                        self.appLogService.error("Missing key: \(key.stringValue) at \(context.codingPath)")
+                    case .typeMismatch(let type, let context):
+                        self.appLogService.error("Type mismatch for type: \(type) at \(context.codingPath)")
+                    case .valueNotFound(let type, let context):
+                        self.appLogService.error("Value not found for type: \(type) at \(context.codingPath)")
+                    case .dataCorrupted(let context):
+                        self.appLogService.error("Data corrupted at \(context.codingPath)")
+                    @unknown default:
+                        self.appLogService.error("Unknown decoding error")
+                    }
                 } catch {
-                    self.appLogService.error("Failed to import configuration: \(error.localizedDescription)")
+                    self.appLogService.error("❌ Failed to import configuration: \(error.localizedDescription)")
                 }
             }
         }

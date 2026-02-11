@@ -1,0 +1,109 @@
+{
+  "version": "1.0",
+  "exportDate": "2026-02-11T10:30:00Z",
+  "services": [
+    {
+      "id": "A1B2C3D4-E5F6-7890-ABCD-EF1234567890",
+      "name": "Production Services",
+      "hosts": [
+        {
+          "id": "11111111-2222-3333-4444-555555555555",
+          "name": "PostgreSQL Master",
+          "hostnameTemplate": "postgres.prod.{location}.example.com",
+          "remotePort": 5432,
+          "locations": [
+            {
+              "id": "AAA11111-BBBB-CCCC-DDDD-EEEEEEEE1111",
+              "datacenter": "hc",
+              "localPort": 9001
+            },
+            {
+              "id": "AAA22222-BBBB-CCCC-DDDD-EEEEEEEE2222",
+              "datacenter": "kc",
+              "localPort": 9002
+            }
+          ]
+        },
+        {
+          "id": "22222222-3333-4444-5555-666666666666",
+          "name": "Redis Cache",
+          "hostnameTemplate": "redis.prod.{location}.example.com",
+          "remotePort": 6379,
+          "locations": [
+            {
+              "id": "BBB11111-CCCC-DDDD-EEEE-FFFFFFFFF111",
+              "datacenter": "hc",
+              "localPort": 9101
+            },
+            {
+              "id": "BBB22222-CCCC-DDDD-EEEE-FFFFFFFFF222",
+              "datacenter": "kc",
+              "localPort": 9102
+            },
+            {
+              "id": "BBB33333-CCCC-DDDD-EEEE-FFFFFFFFF333",
+              "datacenter": "pc",
+              "localPort": 9103
+            }
+          ]
+        }
+      ],
+      "childServices": [
+        {
+          "id": "B2C3D4E5-F6G7-8901-BCDE-F12345678901",
+          "name": "Monitoring",
+          "hosts": [
+            {
+              "id": "33333333-4444-5555-6666-777777777777",
+              "name": "Prometheus",
+              "hostnameTemplate": "prometheus.monitoring.{location}.example.com",
+              "remotePort": 9090,
+              "locations": [
+                {
+                  "id": "CCC11111-DDDD-EEEE-FFFF-000000000111",
+                  "datacenter": "hc",
+                  "localPort": 9201
+                }
+              ]
+            }
+          ],
+          "childServices": []
+        }
+      ]
+    },
+    {
+      "id": "C3D4E5F6-G7H8-9012-CDEF-123456789012",
+      "name": "Development Services",
+      "hosts": [
+        {
+          "id": "44444444-5555-6666-7777-888888888888",
+          "name": "MySQL Dev",
+          "hostnameTemplate": "mysql.dev.{location}.example.com",
+          "remotePort": 3306,
+          "locations": [
+            {
+              "id": "DDD11111-EEEE-FFFF-0000-111111111111",
+              "datacenter": "hc",
+              "localPort": 9301
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    }
+  ],
+  "settings": {
+    "command": "/usr/local/bin/mcc tp-port-forward",
+    "loginCommand": "/usr/local/bin/mcc login",
+    "logoutCommand": "/usr/local/bin/mcc logout",
+    "retryEnabled": true,
+    "retryAttempts": 5,
+    "retryDelay": 3,
+    "datacenters": [
+      "hc",
+      "kc",
+      "pc"
+    ]
+  }
+}
+

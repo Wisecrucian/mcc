@@ -85,6 +85,7 @@ struct PortRowView: View {
         .padding(.vertical, 3)
         .padding(.horizontal, 12)
         .padding(.leading, 24)
+        .id(port.id) // Stable identity to prevent view recreation
         .confirmationDialog(
             "Kill process on local port \(port.toPort)?",
             isPresented: $showingKillConfirm,
@@ -93,7 +94,9 @@ struct PortRowView: View {
             Button("Kill Process", role: .destructive) {
                 onKillPort?()
             }
-            Button("Cancel", role: .cancel) {}
+            Button("Cancel", role: .cancel) {
+                // Explicit cancel action
+            }
         } message: {
             Text(verbatim: "This will terminate any process using local port \(String(port.toPort))")
         }

@@ -1,0 +1,472 @@
+{
+  "version": "1.0",
+  "exportDate": "2026-02-11T12:00:00Z",
+  "services": [
+    {
+      "id": "11111111-1111-1111-1111-111111111111",
+      "name": "Production Databases",
+      "hosts": [
+        {
+          "id": "A1000000-0000-0000-0000-000000000001",
+          "name": "PostgreSQL Primary",
+          "hostnameTemplate": "postgres-primary.prod.{location}.company.com",
+          "remotePort": 5432,
+          "locations": [
+            {
+              "id": "L1000001-0000-0000-0000-000000000001",
+              "datacenter": "hc",
+              "localPort": 5001
+            },
+            {
+              "id": "L1000002-0000-0000-0000-000000000001",
+              "datacenter": "kc",
+              "localPort": 5002
+            }
+          ]
+        },
+        {
+          "id": "A1000000-0000-0000-0000-000000000002",
+          "name": "PostgreSQL Replica",
+          "hostnameTemplate": "postgres-replica.prod.{location}.company.com",
+          "remotePort": 5432,
+          "locations": [
+            {
+              "id": "L1000001-0000-0000-0000-000000000002",
+              "datacenter": "hc",
+              "localPort": 5101
+            },
+            {
+              "id": "L1000002-0000-0000-0000-000000000002",
+              "datacenter": "pc",
+              "localPort": 5102
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    },
+    {
+      "id": "22222222-2222-2222-2222-222222222222",
+      "name": "Production Cache",
+      "hosts": [
+        {
+          "id": "A2000000-0000-0000-0000-000000000001",
+          "name": "Redis Master",
+          "hostnameTemplate": "redis-master.prod.{location}.company.com",
+          "remotePort": 6379,
+          "locations": [
+            {
+              "id": "L2000001-0000-0000-0000-000000000001",
+              "datacenter": "hc",
+              "localPort": 6001
+            },
+            {
+              "id": "L2000002-0000-0000-0000-000000000001",
+              "datacenter": "kc",
+              "localPort": 6002
+            },
+            {
+              "id": "L2000003-0000-0000-0000-000000000001",
+              "datacenter": "pc",
+              "localPort": 6003
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    },
+    {
+      "id": "33333333-3333-3333-3333-333333333333",
+      "name": "Message Queue",
+      "hosts": [
+        {
+          "id": "A3000000-0000-0000-0000-000000000001",
+          "name": "RabbitMQ",
+          "hostnameTemplate": "rabbitmq.prod.{location}.company.com",
+          "remotePort": 5672,
+          "locations": [
+            {
+              "id": "L3000001-0000-0000-0000-000000000001",
+              "datacenter": "hc",
+              "localPort": 7001
+            },
+            {
+              "id": "L3000002-0000-0000-0000-000000000001",
+              "datacenter": "kc",
+              "localPort": 7002
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    },
+    {
+      "id": "44444444-4444-4444-4444-444444444444",
+      "name": "Search Services",
+      "hosts": [
+        {
+          "id": "A4000000-0000-0000-0000-000000000001",
+          "name": "Elasticsearch",
+          "hostnameTemplate": "elasticsearch.prod.{location}.company.com",
+          "remotePort": 9200,
+          "locations": [
+            {
+              "id": "L4000001-0000-0000-0000-000000000001",
+              "datacenter": "hc",
+              "localPort": 9201
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    },
+    {
+      "id": "55555555-5555-5555-5555-555555555555",
+      "name": "Monitoring & Observability",
+      "hosts": [
+        {
+          "id": "A5000000-0000-0000-0000-000000000001",
+          "name": "Prometheus",
+          "hostnameTemplate": "prometheus.monitoring.{location}.company.com",
+          "remotePort": 9090,
+          "locations": [
+            {
+              "id": "L5000001-0000-0000-0000-000000000001",
+              "datacenter": "hc",
+              "localPort": 8001
+            }
+          ]
+        },
+        {
+          "id": "A5000000-0000-0000-0000-000000000002",
+          "name": "Grafana",
+          "hostnameTemplate": "grafana.monitoring.{location}.company.com",
+          "remotePort": 3000,
+          "locations": [
+            {
+              "id": "L5000001-0000-0000-0000-000000000002",
+              "datacenter": "hc",
+              "localPort": 8101
+            }
+          ]
+        }
+      ],
+      "childServices": [
+        {
+          "id": "55555555-5555-5555-5555-555555555501",
+          "name": "Alerting",
+          "hosts": [
+            {
+              "id": "A5500000-0000-0000-0000-000000000001",
+              "name": "Alertmanager",
+              "hostnameTemplate": "alertmanager.monitoring.{location}.company.com",
+              "remotePort": 9093,
+              "locations": [
+                {
+                  "id": "L5500001-0000-0000-0000-000000000001",
+                  "datacenter": "hc",
+                  "localPort": 8201
+                }
+              ]
+            }
+          ],
+          "childServices": []
+        }
+      ]
+    },
+    {
+      "id": "66666666-6666-6666-6666-666666666666",
+      "name": "Development Environment",
+      "hosts": [
+        {
+          "id": "A6000000-0000-0000-0000-000000000001",
+          "name": "MySQL Dev",
+          "hostnameTemplate": "mysql.dev.{location}.company.com",
+          "remotePort": 3306,
+          "locations": [
+            {
+              "id": "L6000001-0000-0000-0000-000000000001",
+              "datacenter": "hc",
+              "localPort": 3301
+            }
+          ]
+        },
+        {
+          "id": "A6000000-0000-0000-0000-000000000002",
+          "name": "MongoDB Dev",
+          "hostnameTemplate": "mongodb.dev.{location}.company.com",
+          "remotePort": 27017,
+          "locations": [
+            {
+              "id": "L6000001-0000-0000-0000-000000000002",
+              "datacenter": "hc",
+              "localPort": 27101
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    },
+    {
+      "id": "77777777-7777-7777-7777-777777777777",
+      "name": "Staging Environment",
+      "hosts": [
+        {
+          "id": "A7000000-0000-0000-0000-000000000001",
+          "name": "PostgreSQL Staging",
+          "hostnameTemplate": "postgres.staging.{location}.company.com",
+          "remotePort": 5432,
+          "locations": [
+            {
+              "id": "L7000001-0000-0000-0000-000000000001",
+              "datacenter": "kc",
+              "localPort": 5201
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    },
+    {
+      "id": "88888888-8888-8888-8888-888888888888",
+      "name": "Analytics",
+      "hosts": [
+        {
+          "id": "A8000000-0000-0000-0000-000000000001",
+          "name": "ClickHouse",
+          "hostnameTemplate": "clickhouse.analytics.{location}.company.com",
+          "remotePort": 9000,
+          "locations": [
+            {
+              "id": "L8000001-0000-0000-0000-000000000001",
+              "datacenter": "pc",
+              "localPort": 9001
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    },
+    {
+      "id": "99999999-9999-9999-9999-999999999999",
+      "name": "Object Storage",
+      "hosts": [
+        {
+          "id": "A9000000-0000-0000-0000-000000000001",
+          "name": "MinIO",
+          "hostnameTemplate": "minio.storage.{location}.company.com",
+          "remotePort": 9000,
+          "locations": [
+            {
+              "id": "L9000001-0000-0000-0000-000000000001",
+              "datacenter": "hc",
+              "localPort": 9501
+            },
+            {
+              "id": "L9000002-0000-0000-0000-000000000001",
+              "datacenter": "kc",
+              "localPort": 9502
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    },
+    {
+      "id": "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA",
+      "name": "CI/CD Infrastructure",
+      "hosts": [
+        {
+          "id": "AA000000-0000-0000-0000-000000000001",
+          "name": "Jenkins",
+          "hostnameTemplate": "jenkins.cicd.{location}.company.com",
+          "remotePort": 8080,
+          "locations": [
+            {
+              "id": "LA000001-0000-0000-0000-000000000001",
+              "datacenter": "hc",
+              "localPort": 8801
+            }
+          ]
+        },
+        {
+          "id": "AA000000-0000-0000-0000-000000000002",
+          "name": "GitLab Runner",
+          "hostnameTemplate": "gitlab-runner.cicd.{location}.company.com",
+          "remotePort": 8093,
+          "locations": [
+            {
+              "id": "LA000001-0000-0000-0000-000000000002",
+              "datacenter": "hc",
+              "localPort": 8901
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    },
+    {
+      "id": "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB",
+      "name": "Microservices - Authentication",
+      "hosts": [
+        {
+          "id": "BB000000-0000-0000-0000-000000000001",
+          "name": "Auth Service DB",
+          "hostnameTemplate": "auth-db.services.{location}.company.com",
+          "remotePort": 5432,
+          "locations": [
+            {
+              "id": "LB000001-0000-0000-0000-000000000001",
+              "datacenter": "hc",
+              "localPort": 15001
+            },
+            {
+              "id": "LB000002-0000-0000-0000-000000000001",
+              "datacenter": "kc",
+              "localPort": 15002
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    },
+    {
+      "id": "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC",
+      "name": "Microservices - Payments",
+      "hosts": [
+        {
+          "id": "CC000000-0000-0000-0000-000000000001",
+          "name": "Payment Service DB",
+          "hostnameTemplate": "payment-db.services.{location}.company.com",
+          "remotePort": 5432,
+          "locations": [
+            {
+              "id": "LC000001-0000-0000-0000-000000000001",
+              "datacenter": "hc",
+              "localPort": 15101
+            },
+            {
+              "id": "LC000002-0000-0000-0000-000000000001",
+              "datacenter": "kc",
+              "localPort": 15102
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    },
+    {
+      "id": "DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD",
+      "name": "Microservices - Notifications",
+      "hosts": [
+        {
+          "id": "DD000000-0000-0000-0000-000000000001",
+          "name": "Notification Service DB",
+          "hostnameTemplate": "notification-db.services.{location}.company.com",
+          "remotePort": 5432,
+          "locations": [
+            {
+              "id": "LD000001-0000-0000-0000-000000000001",
+              "datacenter": "hc",
+              "localPort": 15201
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    },
+    {
+      "id": "EEEEEEEE-EEEE-EEEE-EEEE-EEEEEEEEEEEE",
+      "name": "Data Pipeline",
+      "hosts": [
+        {
+          "id": "EE000000-0000-0000-0000-000000000001",
+          "name": "Apache Kafka",
+          "hostnameTemplate": "kafka.pipeline.{location}.company.com",
+          "remotePort": 9092,
+          "locations": [
+            {
+              "id": "LE000001-0000-0000-0000-000000000001",
+              "datacenter": "hc",
+              "localPort": 9092
+            },
+            {
+              "id": "LE000002-0000-0000-0000-000000000001",
+              "datacenter": "kc",
+              "localPort": 9093
+            }
+          ]
+        }
+      ],
+      "childServices": [
+        {
+          "id": "EEEEEEEE-EEEE-EEEE-EEEE-EEEEEEEE0001",
+          "name": "Stream Processing",
+          "hosts": [
+            {
+              "id": "EE100000-0000-0000-0000-000000000001",
+              "name": "Apache Flink",
+              "hostnameTemplate": "flink.pipeline.{location}.company.com",
+              "remotePort": 8081,
+              "locations": [
+                {
+                  "id": "LE100001-0000-0000-0000-000000000001",
+                  "datacenter": "hc",
+                  "localPort": 8181
+                }
+              ]
+            }
+          ],
+          "childServices": []
+        }
+      ]
+    },
+    {
+      "id": "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF",
+      "name": "Testing Environment",
+      "hosts": [
+        {
+          "id": "FF000000-0000-0000-0000-000000000001",
+          "name": "Test PostgreSQL",
+          "hostnameTemplate": "postgres.test.{location}.company.com",
+          "remotePort": 5432,
+          "locations": [
+            {
+              "id": "LF000001-0000-0000-0000-000000000001",
+              "datacenter": "pc",
+              "localPort": 5301
+            }
+          ]
+        },
+        {
+          "id": "FF000000-0000-0000-0000-000000000002",
+          "name": "Test Redis",
+          "hostnameTemplate": "redis.test.{location}.company.com",
+          "remotePort": 6379,
+          "locations": [
+            {
+              "id": "LF000001-0000-0000-0000-000000000002",
+              "datacenter": "pc",
+              "localPort": 6301
+            }
+          ]
+        }
+      ],
+      "childServices": []
+    }
+  ],
+  "settings": {
+    "command": "/usr/local/bin/mcc tp-port-forward",
+    "loginCommand": "/usr/local/bin/mcc login",
+    "logoutCommand": "/usr/local/bin/mcc logout",
+    "retryEnabled": true,
+    "retryAttempts": 5,
+    "retryDelay": 3,
+    "datacenters": [
+      "hc",
+      "kc",
+      "pc"
+    ]
+  }
+}
+

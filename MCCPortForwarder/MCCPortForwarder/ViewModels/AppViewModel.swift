@@ -694,7 +694,7 @@ final class AppViewModel: ObservableObject {
                         isError: false
                     )
                     
-                    // Stop the host in ProcessService to prevent auto-restart
+                    // ✅ Stop the process in ProcessService to prevent auto-restart
                     self.processService.stopHost(processId)
                     self.hostStates[processId] = .stopped
                     self.updateHostAggregateState(host)
@@ -719,7 +719,7 @@ final class AppViewModel: ObservableObject {
                                         isError: false
                                     )
                                     
-                                    // Stop the host in ProcessService to prevent auto-restart
+                                    // ✅ Stop the process in ProcessService to prevent auto-restart
                                     self.processService.stopHost(processId)
                                     self.hostStates[processId] = .stopped
                                     self.updateHostAggregateState(host)

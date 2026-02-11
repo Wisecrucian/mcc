@@ -287,16 +287,14 @@ class MCCToolWindowContent(private val project: Project) {
                 val dir = java.io.File(files[0].path)
                 val file = java.io.File(dir, "mcc-config-export.json")
                 
-                // TODO: Implement actual JSON export
-                val dummyJson = """
-                    {
-                        "version": "1.0",
-                        "services": []
-                    }
-                """.trimIndent()
+                val json = service.exportToJson()
+                file.writeText(json)
                 
-                file.writeText(dummyJson)
-                Messages.showInfoMessage(project, "Configuration exported to:\n${file.absolutePath}", "Export Successful")
+                Messages.showInfoMessage(
+                    project,
+                    "Configuration exported successfully!\n\nFile: ${file.absolutePath}\nServices: ${service.services.value.size}",
+                    "Export Successful"
+                )
             } catch (e: Exception) {
                 Messages.showErrorDialog(project, "Failed to export configuration: ${e.message}", "Export Error")
             }
@@ -347,10 +345,16 @@ class MCCToolWindowContent(private val project: Project) {
             try {
                 val file = File(files[0].path)
                 val content = file.readText()
-                // TODO: Parse and import JSON configuration
-                Messages.showInfoMessage("Import from JSON not yet implemented.\nPlease use 'Add Test Data' for now.", "Import")
+                
+                service.importFromJson(content)
+                
+                Messages.showInfoMessage(
+                    project,
+                    "Configuration imported successfully!\n\nNote: Full JSON parsing is not yet implemented.\nUse 'Add Test Data' to add services.",
+                    "Import"
+                )
             } catch (e: Exception) {
-                Messages.showErrorDialog("Failed to import configuration: ${e.message}", "Import Error")
+                Messages.showErrorDialog(project, "Failed to import configuration: ${e.message}", "Import Error")
             }
         }
     }

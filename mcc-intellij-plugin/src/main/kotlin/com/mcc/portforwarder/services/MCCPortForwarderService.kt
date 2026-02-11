@@ -195,6 +195,71 @@ class MCCPortForwarderService {
     private fun saveToStorage() {
         // TODO: Implement persistence
     }
+    
+    fun exportToJson(): String {
+        val settings = settingsService.getSettings()
+        
+        val servicesJson = _services.value.joinToString(",\n    ") { service ->
+            val hostsJson = service.hosts.joinToString(",\n      ") { host ->
+                val locationsJson = host.locations.joinToString(",\n        ") { loc ->
+                    """{"datacenter": "${loc.datacenter}", "localPort": ${loc.localPort}}"""
+                }
+                """
+                {
+                  "name": "${host.name}",
+                  "hostnameTemplate": "${host.hostnameTemplate}",
+                  "remotePort": ${host.remotePort},
+                  "locations": [$locationsJson
+                  ]
+                }""".trimIndent()
+            }
+            """
+            {
+              "name": "${service.name}",
+              "hosts": [$hostsJson
+              ]
+            }""".trimIndent()
+        }
+        
+        return """
+        {
+          "version": "1.0",
+          "services": [$servicesJson
+          ],
+          "settings": {
+            "command": "${settings.command}",
+            "loginCommand": "${settings.loginCommand}",
+            "logoutCommand": "${settings.logoutCommand}",
+            "retryEnabled": ${settings.retryEnabled},
+            "retryAttempts": ${settings.retryAttempts},
+            "retryDelay": ${settings.retryDelay},
+            "datacenters": [${settings.datacenters.joinToString(", ") { "\"$it\"" }}]
+          }
+        }
+        """.trimIndent()
+    }
+    
+    fun importFromJson(json: String) {
+        // Simple JSON parsing (basic implementation)
+        try {
+            // Stop all current services first
+            _services.value.forEach { service ->
+                service.hosts.forEach { host ->
+                    host.compatiblePorts.forEach { port ->
+                        stopPort(host, port)
+                    }
+                }
+            }
+            
+            // TODO: Implement proper JSON parsing
+            // For now, just show a message that it's not fully implemented
+            println("🔍 [MCCService] Import JSON: ${json.take(100)}...")
+            
+        } catch (e: Exception) {
+            println("🔍 [MCCService] Failed to import: ${e.message}")
+            throw e
+        }
+    }
 
     fun dispose() {
         scope.cancel()

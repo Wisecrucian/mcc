@@ -65,7 +65,7 @@ class MCCToolWindowContent(private val project: Project) {
     }
     
     fun getContent(): JComponent {
-        // Toolbar
+        // Top toolbar
         val toolbar = createToolbar()
         mainPanel.add(toolbar, BorderLayout.NORTH)
         
@@ -74,6 +74,10 @@ class MCCToolWindowContent(private val project: Project) {
         centerPanel.add(scrollPane, BorderLayout.CENTER)
         
         mainPanel.add(centerPanel, BorderLayout.CENTER)
+        
+        // Bottom action panel
+        val actionPanel = createActionPanel()
+        mainPanel.add(actionPanel, BorderLayout.SOUTH)
         
         // Initial state check
         updateEmptyState()
@@ -113,12 +117,32 @@ class MCCToolWindowContent(private val project: Project) {
         toolbar.border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
         
         // Add Service button
-        val addServiceButton = JButton("➕ Add Service")
+        val addServiceButton = JButton("➕ Service")
         addServiceButton.toolTipText = "Add new service"
         addServiceButton.addActionListener {
             showAddServiceDialog()
         }
         toolbar.add(addServiceButton)
+        
+        toolbar.add(Box.createHorizontalStrut(5))
+        
+        // Import button
+        val importButton = JButton("📥 Import")
+        importButton.toolTipText = "Import configuration from JSON"
+        importButton.addActionListener {
+            importConfiguration()
+        }
+        toolbar.add(importButton)
+        
+        toolbar.add(Box.createHorizontalStrut(5))
+        
+        // Export button
+        val exportButton = JButton("📤 Export")
+        exportButton.toolTipText = "Export configuration to JSON"
+        exportButton.addActionListener {
+            exportConfiguration()
+        }
+        toolbar.add(exportButton)
         
         toolbar.add(Box.createHorizontalStrut(10))
         toolbar.add(JSeparator(SwingConstants.VERTICAL))
@@ -167,6 +191,104 @@ class MCCToolWindowContent(private val project: Project) {
         toolbar.add(settingsButton)
         
         return toolbar
+    }
+    
+    private fun createActionPanel(): JComponent {
+        val panel = JPanel()
+        panel.layout = BoxLayout(panel, BoxLayout.X_AXIS)
+        panel.border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
+        
+        // Add Host button
+        val addHostButton = JButton("➕ Add Host")
+        addHostButton.toolTipText = "Add host to selected service"
+        addHostButton.addActionListener {
+            handleAddHost()
+        }
+        
+        // Start button
+        val startButton = JButton("▶️ Start")
+        startButton.toolTipText = "Start selected item"
+        startButton.addActionListener {
+            handleStartPort()
+        }
+        
+        // Stop button
+        val stopButton = JButton("⏹️ Stop")
+        stopButton.toolTipText = "Stop selected item"
+        stopButton.addActionListener {
+            handleStopPort()
+        }
+        
+        // Edit button
+        val editButton = JButton("✏️ Edit")
+        editButton.toolTipText = "Edit selected item"
+        editButton.addActionListener {
+            handleEditService()
+        }
+        
+        // Delete button
+        val deleteButton = JButton("🗑️ Delete")
+        deleteButton.toolTipText = "Delete selected item"
+        deleteButton.addActionListener {
+            handleDeleteService()
+        }
+        
+        panel.add(addHostButton)
+        panel.add(Box.createHorizontalStrut(5))
+        panel.add(startButton)
+        panel.add(Box.createHorizontalStrut(5))
+        panel.add(stopButton)
+        panel.add(Box.createHorizontalStrut(5))
+        panel.add(editButton)
+        panel.add(Box.createHorizontalStrut(5))
+        panel.add(deleteButton)
+        panel.add(Box.createHorizontalGlue())
+        
+        // Update buttons based on selection
+        tree.addTreeSelectionListener { _ ->
+            SwingUtilities.invokeLater {
+                val selected = getSelectedNodeData()
+                when (selected?.type) {
+                    TreeNodeType.SERVICE -> {
+                        addHostButton.isEnabled = true
+                        startButton.isEnabled = true
+                        stopButton.isEnabled = true
+                        editButton.isEnabled = true
+                        deleteButton.isEnabled = true
+                    }
+                    TreeNodeType.HOST -> {
+                        addHostButton.isEnabled = false
+                        startButton.isEnabled = true
+                        stopButton.isEnabled = true
+                        editButton.isEnabled = true
+                        deleteButton.isEnabled = true
+                    }
+                    TreeNodeType.PORT -> {
+                        addHostButton.isEnabled = false
+                        startButton.isEnabled = selected.state != ProcessState.READY
+                        stopButton.isEnabled = selected.state != ProcessState.STOPPED
+                        editButton.isEnabled = false
+                        deleteButton.isEnabled = false
+                    }
+                    null -> {
+                        addHostButton.isEnabled = false
+                        startButton.isEnabled = false
+                        stopButton.isEnabled = false
+                        editButton.isEnabled = false
+                        deleteButton.isEnabled = false
+                    }
+                }
+            }
+        }
+        
+        // Initial state
+        addHostButton.isEnabled = false
+        startButton.isEnabled = false
+        stopButton.isEnabled = false
+        editButton.isEnabled = false
+        deleteButton.isEnabled = false
+        
+        return panel
     }
     
     private fun executeLoginCommand() {
@@ -223,6 +345,59 @@ class MCCToolWindowContent(private val project: Project) {
     
     
     
+    
+    private fun importConfiguration() {
+        val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json")
+        descriptor.title = "Select Configuration File"
+        descriptor.description = "Choose a JSON configuration file to import"
+        
+        val chooser = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null)
+        val files = chooser.choose(project)
+        
+        if (files.isNotEmpty()) {
+            try {
+                val file = File(files[0].path)
+                val content = file.readText()
+                
+                service.importFromJson(content)
+                
+                Messages.showInfoMessage(
+                    project,
+                    "Configuration imported from:\n${file.name}\n\nPlease note: Full JSON parsing is not yet implemented.\nYou can use this file as a template.",
+                    "Import"
+                )
+            } catch (e: Exception) {
+                Messages.showErrorDialog(project, "Failed to import configuration: ${e.message}", "Import Error")
+            }
+        }
+    }
+    
+    private fun exportConfiguration() {
+        val descriptor = FileChooserDescriptorFactory.createSingleFolderDescriptor()
+        descriptor.title = "Select Export Directory"
+        descriptor.description = "Choose where to save the configuration file"
+        
+        val chooser = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null)
+        val files = chooser.choose(project)
+        
+        if (files.isNotEmpty()) {
+            try {
+                val dir = java.io.File(files[0].path)
+                val file = java.io.File(dir, "mcc-config-export.json")
+                
+                val json = service.exportToJson()
+                file.writeText(json)
+                
+                Messages.showInfoMessage(
+                    project,
+                    "Configuration exported successfully!\n\nFile: ${file.absolutePath}\nServices: ${service.services.value.size}\nHosts: ${service.services.value.sumOf { it.hosts.size }}",
+                    "Export Successful"
+                )
+            } catch (e: Exception) {
+                Messages.showErrorDialog(project, "Failed to export configuration: ${e.message}", "Export Error")
+            }
+        }
+    }
     
     private fun showSettings() {
         val settingsService = MCCSettingsService.getInstance()

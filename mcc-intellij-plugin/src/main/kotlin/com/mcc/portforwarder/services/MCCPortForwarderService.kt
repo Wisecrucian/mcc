@@ -121,6 +121,34 @@ class MCCPortForwarderService {
             }
         }
     }
+    
+    fun killProcessOnPort(localPort: Int) {
+        scope.launch {
+            try {
+                // Use lsof to find process using the port
+                val lsofProcess = ProcessBuilder("lsof", "-ti", ":$localPort")
+                    .redirectErrorStream(true)
+                    .start()
+                
+                val pid = lsofProcess.inputStream.bufferedReader().readText().trim()
+                lsofProcess.waitFor()
+                
+                if (pid.isNotEmpty()) {
+                    // Kill the process
+                    val killProcess = ProcessBuilder("kill", "-9", pid)
+                        .redirectErrorStream(true)
+                        .start()
+                    
+                    killProcess.waitFor()
+                    println("🔍 [MCCService] Killed process $pid on port $localPort")
+                } else {
+                    println("🔍 [MCCService] No process found on port $localPort")
+                }
+            } catch (e: Exception) {
+                println("🔍 [MCCService] Failed to kill process on port $localPort: ${e.message}")
+            }
+        }
+    }
 
     fun getState(processId: UUID): ProcessState {
         return _portStates.value[processId] ?: ProcessState.STOPPED

@@ -25,6 +25,8 @@ class MCCToolWindowContent(private val project: Project) {
     
     private val tree = Tree()
     private val treeModel = DefaultTreeModel(DefaultMutableTreeNode("Services"))
+    private val mainPanel = JPanel(BorderLayout())
+    private val centerPanel = JPanel(BorderLayout())
     
     init {
         tree.model = treeModel
@@ -35,6 +37,7 @@ class MCCToolWindowContent(private val project: Project) {
         service.services.onEach { services ->
             SwingUtilities.invokeLater {
                 updateTree()
+                updateEmptyState()
             }
         }.launchIn(scope)
         
@@ -47,27 +50,39 @@ class MCCToolWindowContent(private val project: Project) {
     }
     
     fun getContent(): JComponent {
-        val panel = JPanel(BorderLayout())
-        
         // Toolbar
         val toolbar = createToolbar()
-        panel.add(toolbar, BorderLayout.NORTH)
+        mainPanel.add(toolbar, BorderLayout.NORTH)
         
-        // Tree with message
-        val centerPanel = JPanel(BorderLayout())
+        // Tree
         val scrollPane = JBScrollPane(tree)
         centerPanel.add(scrollPane, BorderLayout.CENTER)
         
+        mainPanel.add(centerPanel, BorderLayout.CENTER)
+        
+        // Initial state check
+        updateEmptyState()
+        
+        return mainPanel
+    }
+    
+    private fun updateEmptyState() {
+        // Remove old help label if exists
+        centerPanel.components.forEach { 
+            if (it is JLabel) {
+                centerPanel.remove(it)
+            }
+        }
+        
         // Add helper text when empty
         if (service.services.value.isEmpty()) {
-            val helpLabel = JLabel("<html><center>No services configured<br><br>Click 'Add Test Data' to get started<br>or 'Import' to load configuration</center></html>")
+            val helpLabel = JLabel("<html><center><h2>No services configured</h2><br><br>Click <b>'Add Test Data'</b> to get started<br>or <b>'Import'</b> to load configuration</center></html>")
             helpLabel.horizontalAlignment = SwingConstants.CENTER
             centerPanel.add(helpLabel, BorderLayout.SOUTH)
         }
         
-        panel.add(centerPanel, BorderLayout.CENTER)
-        
-        return panel
+        centerPanel.revalidate()
+        centerPanel.repaint()
     }
     
     private fun createToolbar(): JComponent {

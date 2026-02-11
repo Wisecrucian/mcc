@@ -436,8 +436,8 @@ class MCCToolWindowContent(private val project: Project) {
                         TreeNodeType.HOST -> {
                             startItem.isVisible = true
                             stopItem.isVisible = true
-                            editItem.isVisible = false
-                            deleteItem.isVisible = false
+                            editItem.isVisible = true
+                            deleteItem.isVisible = true
                             killItem.isVisible = false
                             logsItem.isVisible = false
                             
@@ -456,6 +456,13 @@ class MCCToolWindowContent(private val project: Project) {
                             stopItem.text = "Stop Service"
                         }
                         else -> return
+                    }
+                    
+                    // Add "Add Host" option for services
+                    if (data?.type == TreeNodeType.SERVICE) {
+                        val addHostItem = JMenuItem("Add Host")
+                        addHostItem.addActionListener { handleAddHost() }
+                        menu.add(addHostItem, 0) // Add at top
                     }
                     
                     menu.show(tree, e.x, e.y)
@@ -624,23 +631,81 @@ class MCCToolWindowContent(private val project: Project) {
         }
     }
     
-    private fun handleEditService() {
+    private fun handleAddHost() {
         val selected = getSelectedNodeData() ?: return
         if (selected.type != TreeNodeType.SERVICE) return
         
         val svc = service.services.value.find { it.id == selected.serviceId } ?: return
+        val settings = MCCSettingsService.getInstance().getSettings()
         
         val panel = JPanel()
         panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
         panel.border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
         
-        panel.add(JLabel("Service Name:"))
-        val nameField = JTextField(svc.name, 30)
+        // Host Name
+        panel.add(JLabel("Host Name:"))
+        val nameField = JTextField(30)
         panel.add(nameField)
+        panel.add(Box.createVerticalStrut(10))
+        
+        // Hostname Template
+        panel.add(JLabel("Hostname Template:"))
+        val templateField = JTextField("server.{location}.example.com", 30)
+        panel.add(templateField)
+        panel.add(JLabel("<html><font size='2'>Use {location} placeholder for datacenter</font></html>"))
+        panel.add(Box.createVerticalStrut(10))
+        
+        // Remote Port
+        panel.add(JLabel("Remote Port (on server):"))
+        val remotePortField = JTextField("8080", 10)
+        panel.add(remotePortField)
+        panel.add(Box.createVerticalStrut(10))
+        
+        // Datacenters
+        panel.add(JLabel("<html><b>Select Datacenters:</b></html>"))
+        val dcPanel = JPanel()
+        dcPanel.layout = BoxLayout(dcPanel, BoxLayout.Y_AXIS)
+        
+        val dcCheckboxes = mutableMapOf<String, JCheckBox>()
+        val dcPortFields = mutableMapOf<String, JTextField>()
+        
+        var startPort = 9000
+        settings.datacenters.forEach { dc ->
+            val dcRow = JPanel()
+            dcRow.layout = BoxLayout(dcRow, BoxLayout.X_AXIS)
+            dcRow.alignmentX = 0f
+            
+            val checkbox = JCheckBox(dc)
+            val portField = JTextField(startPort.toString(), 6)
+            portField.isEnabled = false
+            
+            checkbox.addActionListener {
+                portField.isEnabled = checkbox.isSelected
+            }
+            
+            dcCheckboxes[dc] = checkbox
+            dcPortFields[dc] = portField
+            
+            dcRow.add(checkbox)
+            dcRow.add(Box.createHorizontalStrut(10))
+            dcRow.add(JLabel("→ Local Port:"))
+            dcRow.add(Box.createHorizontalStrut(5))
+            dcRow.add(portField)
+            dcRow.add(Box.createHorizontalGlue())
+            
+            dcPanel.add(dcRow)
+            dcPanel.add(Box.createVerticalStrut(5))
+            
+            startPort++
+        }
+        
+        val scrollPane = JScrollPane(dcPanel)
+        scrollPane.maximumSize = java.awt.Dimension(400, 150)
+        panel.add(scrollPane)
         
         val dialog = object : com.intellij.openapi.ui.DialogWrapper(project) {
             init {
-                title = "Edit Service"
+                title = "Add Host to ${svc.name}"
                 init()
             }
             
@@ -648,42 +713,251 @@ class MCCToolWindowContent(private val project: Project) {
         }
         
         if (dialog.showAndGet()) {
-            val newName = nameField.text.trim()
-            if (newName.isEmpty()) {
-                Messages.showErrorDialog(project, "Service name cannot be empty", "Error")
+            val name = nameField.text.trim()
+            val template = templateField.text.trim()
+            val remotePort = remotePortField.text.trim().toIntOrNull()
+            
+            if (name.isEmpty() || template.isEmpty() || remotePort == null) {
+                Messages.showErrorDialog(project, "Please fill all fields correctly", "Error")
                 return
             }
             
-            val updatedService = svc.copy(name = newName)
-            service.updateService(updatedService)
+            val locations = mutableListOf<LocationMapping>()
+            dcCheckboxes.forEach { (dc, checkbox) ->
+                if (checkbox.isSelected) {
+                    val localPort = dcPortFields[dc]?.text?.toIntOrNull() ?: return@forEach
+                    locations.add(LocationMapping(datacenter = dc, localPort = localPort))
+                }
+            }
             
-            Messages.showInfoMessage(project, "Service updated successfully!", "Success")
+            if (locations.isEmpty()) {
+                Messages.showErrorDialog(project, "Please select at least one datacenter", "Error")
+                return
+            }
+            
+            val newHost = Host(
+                name = name,
+                hostnameTemplate = template,
+                remotePort = remotePort,
+                locations = locations
+            )
+            
+            svc.hosts.add(newHost)
+            service.updateService(svc)
+            
+            Messages.showInfoMessage(
+                project,
+                "Host '${name}' added successfully!\n\nPorts created: ${locations.size}",
+                "Success"
+            )
+        }
+    }
+    
+    private fun handleEditService() {
+        val selected = getSelectedNodeData() ?: return
+        
+        when (selected.type) {
+            TreeNodeType.SERVICE -> {
+                val svc = service.services.value.find { it.id == selected.serviceId } ?: return
+                
+                val panel = JPanel()
+                panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
+                panel.border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+                
+                panel.add(JLabel("Service Name:"))
+                val nameField = JTextField(svc.name, 30)
+                panel.add(nameField)
+                
+                val dialog = object : com.intellij.openapi.ui.DialogWrapper(project) {
+                    init {
+                        title = "Edit Service"
+                        init()
+                    }
+                    
+                    override fun createCenterPanel() = panel
+                }
+                
+                if (dialog.showAndGet()) {
+                    val newName = nameField.text.trim()
+                    if (newName.isEmpty()) {
+                        Messages.showErrorDialog(project, "Service name cannot be empty", "Error")
+                        return
+                    }
+                    
+                    val updatedService = svc.copy(name = newName)
+                    service.updateService(updatedService)
+                    
+                    Messages.showInfoMessage(project, "Service updated successfully!", "Success")
+                }
+            }
+            TreeNodeType.HOST -> {
+                val svc = service.services.value.find { it.id == selected.serviceId } ?: return
+                val host = svc.hosts.find { it.id == selected.hostId } ?: return
+                val settings = MCCSettingsService.getInstance().getSettings()
+                
+                val panel = JPanel()
+                panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
+                panel.border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+                
+                // Host Name
+                panel.add(JLabel("Host Name:"))
+                val nameField = JTextField(host.name, 30)
+                panel.add(nameField)
+                panel.add(Box.createVerticalStrut(10))
+                
+                // Hostname Template
+                panel.add(JLabel("Hostname Template:"))
+                val templateField = JTextField(host.hostnameTemplate, 30)
+                panel.add(templateField)
+                panel.add(JLabel("<html><font size='2'>Use {location} placeholder for datacenter</font></html>"))
+                panel.add(Box.createVerticalStrut(10))
+                
+                // Remote Port
+                panel.add(JLabel("Remote Port (on server):"))
+                val remotePortField = JTextField(host.remotePort.toString(), 10)
+                panel.add(remotePortField)
+                panel.add(Box.createVerticalStrut(10))
+                
+                // Datacenters
+                panel.add(JLabel("<html><b>Select Datacenters:</b></html>"))
+                val dcPanel = JPanel()
+                dcPanel.layout = BoxLayout(dcPanel, BoxLayout.Y_AXIS)
+                
+                val dcCheckboxes = mutableMapOf<String, JCheckBox>()
+                val dcPortFields = mutableMapOf<String, JTextField>()
+                
+                settings.datacenters.forEach { dc ->
+                    val dcRow = JPanel()
+                    dcRow.layout = BoxLayout(dcRow, BoxLayout.X_AXIS)
+                    dcRow.alignmentX = 0f
+                    
+                    val existingLocation = host.locations.find { it.datacenter == dc }
+                    val checkbox = JCheckBox(dc, existingLocation != null)
+                    val portField = JTextField(existingLocation?.localPort?.toString() ?: "9000", 6)
+                    portField.isEnabled = existingLocation != null
+                    
+                    checkbox.addActionListener {
+                        portField.isEnabled = checkbox.isSelected
+                    }
+                    
+                    dcCheckboxes[dc] = checkbox
+                    dcPortFields[dc] = portField
+                    
+                    dcRow.add(checkbox)
+                    dcRow.add(Box.createHorizontalStrut(10))
+                    dcRow.add(JLabel("→ Local Port:"))
+                    dcRow.add(Box.createHorizontalStrut(5))
+                    dcRow.add(portField)
+                    dcRow.add(Box.createHorizontalGlue())
+                    
+                    dcPanel.add(dcRow)
+                    dcPanel.add(Box.createVerticalStrut(5))
+                }
+                
+                val scrollPane = JScrollPane(dcPanel)
+                scrollPane.maximumSize = java.awt.Dimension(400, 150)
+                panel.add(scrollPane)
+                
+                val dialog = object : com.intellij.openapi.ui.DialogWrapper(project) {
+                    init {
+                        title = "Edit Host"
+                        init()
+                    }
+                    
+                    override fun createCenterPanel() = panel
+                }
+                
+                if (dialog.showAndGet()) {
+                    val name = nameField.text.trim()
+                    val template = templateField.text.trim()
+                    val remotePort = remotePortField.text.trim().toIntOrNull()
+                    
+                    if (name.isEmpty() || template.isEmpty() || remotePort == null) {
+                        Messages.showErrorDialog(project, "Please fill all fields correctly", "Error")
+                        return
+                    }
+                    
+                    val locations = mutableListOf<LocationMapping>()
+                    dcCheckboxes.forEach { (dc, checkbox) ->
+                        if (checkbox.isSelected) {
+                            val localPort = dcPortFields[dc]?.text?.toIntOrNull() ?: return@forEach
+                            locations.add(LocationMapping(datacenter = dc, localPort = localPort))
+                        }
+                    }
+                    
+                    if (locations.isEmpty()) {
+                        Messages.showErrorDialog(project, "Please select at least one datacenter", "Error")
+                        return
+                    }
+                    
+                    val updatedHost = host.copy(
+                        name = name,
+                        hostnameTemplate = template,
+                        remotePort = remotePort,
+                        locations = locations
+                    )
+                    
+                    val hostIndex = svc.hosts.indexOfFirst { it.id == host.id }
+                    if (hostIndex >= 0) {
+                        svc.hosts[hostIndex] = updatedHost
+                        service.updateService(svc)
+                        Messages.showInfoMessage(project, "Host updated successfully!", "Success")
+                    }
+                }
+            }
+            else -> return
         }
     }
     
     private fun handleDeleteService() {
         val selected = getSelectedNodeData() ?: return
-        if (selected.type != TreeNodeType.SERVICE) return
         
-        val svc = service.services.value.find { it.id == selected.serviceId } ?: return
-        
-        val result = Messages.showYesNoDialog(
-            project,
-            "Delete service '${svc.name}'?\n\nThis will stop all running ports and remove the service.",
-            "Delete Service",
-            Messages.getWarningIcon()
-        )
-        
-        if (result == Messages.YES) {
-            // Stop all ports first
-            svc.hosts.forEach { host ->
-                host.compatiblePorts.forEach { port ->
-                    service.stopPort(host, port)
+        when (selected.type) {
+            TreeNodeType.SERVICE -> {
+                val svc = service.services.value.find { it.id == selected.serviceId } ?: return
+                
+                val result = Messages.showYesNoDialog(
+                    project,
+                    "Delete service '${svc.name}'?\n\nThis will stop all running ports and remove the service.",
+                    "Delete Service",
+                    Messages.getWarningIcon()
+                )
+                
+                if (result == Messages.YES) {
+                    // Stop all ports first
+                    svc.hosts.forEach { host ->
+                        host.compatiblePorts.forEach { port ->
+                            service.stopPort(host, port)
+                        }
+                    }
+                    
+                    service.deleteService(svc)
+                    Messages.showInfoMessage(project, "Service '${svc.name}' deleted successfully!", "Success")
                 }
             }
-            
-            service.deleteService(svc)
-            Messages.showInfoMessage(project, "Service '${svc.name}' deleted successfully!", "Success")
+            TreeNodeType.HOST -> {
+                val svc = service.services.value.find { it.id == selected.serviceId } ?: return
+                val host = svc.hosts.find { it.id == selected.hostId } ?: return
+                
+                val result = Messages.showYesNoDialog(
+                    project,
+                    "Delete host '${host.name}'?\n\nThis will stop all running ports and remove the host.",
+                    "Delete Host",
+                    Messages.getWarningIcon()
+                )
+                
+                if (result == Messages.YES) {
+                    // Stop all ports first
+                    host.compatiblePorts.forEach { port ->
+                        service.stopPort(host, port)
+                    }
+                    
+                    svc.hosts.removeIf { it.id == host.id }
+                    service.updateService(svc)
+                    Messages.showInfoMessage(project, "Host '${host.name}' deleted successfully!", "Success")
+                }
+            }
+            else -> return
         }
     }
     

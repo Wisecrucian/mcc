@@ -9,6 +9,7 @@ import com.intellij.ui.treeStructure.Tree
 import com.mcc.portforwarder.models.*
 import com.mcc.portforwarder.services.MCCPortForwarderService
 import com.mcc.portforwarder.services.MCCSettingsService
+import com.mcc.portforwarder.services.MCCSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -360,24 +361,84 @@ class MCCToolWindowContent(private val project: Project) {
     }
     
     private fun showSettings() {
-        val settingsService = com.mcc.portforwarder.services.MCCSettingsService.getInstance()
+        val settingsService = MCCSettingsService.getInstance()
         val settings = settingsService.getSettings()
         
-        val message = """
-            Current Settings:
-            
-            Command: ${settings.command}
-            Login Command: ${settings.loginCommand}
-            Logout Command: ${settings.logoutCommand}
-            
-            Retry Enabled: ${settings.retryEnabled}
-            Retry Attempts: ${settings.retryAttempts}
-            Retry Delay: ${settings.retryDelay}s
-            
-            Datacenters: ${settings.datacenters.joinToString(", ")}
-        """.trimIndent()
+        // Create settings panel
+        val panel = JPanel()
+        panel.layout = BoxLayout(panel, BoxLayout.Y_AXIS)
+        panel.border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
         
-        Messages.showInfoMessage(message, "Settings")
+        // Command
+        panel.add(JLabel("Command:"))
+        val commandField = JTextField(settings.command, 30)
+        panel.add(commandField)
+        panel.add(Box.createVerticalStrut(10))
+        
+        // Login Command
+        panel.add(JLabel("Login Command:"))
+        val loginCommandField = JTextField(settings.loginCommand, 30)
+        panel.add(loginCommandField)
+        panel.add(Box.createVerticalStrut(10))
+        
+        // Logout Command
+        panel.add(JLabel("Logout Command:"))
+        val logoutCommandField = JTextField(settings.logoutCommand, 30)
+        panel.add(logoutCommandField)
+        panel.add(Box.createVerticalStrut(10))
+        
+        // Retry Enabled
+        val retryCheckbox = JCheckBox("Enable Retry", settings.retryEnabled)
+        panel.add(retryCheckbox)
+        panel.add(Box.createVerticalStrut(10))
+        
+        // Retry Attempts
+        panel.add(JLabel("Retry Attempts:"))
+        val retryAttemptsField = JTextField(settings.retryAttempts.toString(), 5)
+        panel.add(retryAttemptsField)
+        panel.add(Box.createVerticalStrut(10))
+        
+        // Retry Delay
+        panel.add(JLabel("Retry Delay (seconds):"))
+        val retryDelayField = JTextField(settings.retryDelay.toString(), 5)
+        panel.add(retryDelayField)
+        panel.add(Box.createVerticalStrut(10))
+        
+        // Datacenters
+        panel.add(JLabel("Datacenters (comma-separated):"))
+        val datacentersField = JTextField(settings.datacenters.joinToString(", "), 30)
+        panel.add(datacentersField)
+        
+        // Show dialog using DialogWrapper for custom panel
+        val dialog = object : com.intellij.openapi.ui.DialogWrapper(project) {
+            init {
+                title = "Settings"
+                init()
+            }
+            
+            override fun createCenterPanel() = panel
+        }
+        
+        val result = if (dialog.showAndGet()) 0 else 1
+        
+        if (result == 0) { // 0 = Save button
+            try {
+                val newSettings = MCCSettings(
+                    command = commandField.text,
+                    loginCommand = loginCommandField.text,
+                    logoutCommand = logoutCommandField.text,
+                    retryEnabled = retryCheckbox.isSelected,
+                    retryAttempts = retryAttemptsField.text.toIntOrNull() ?: settings.retryAttempts,
+                    retryDelay = retryDelayField.text.toIntOrNull() ?: settings.retryDelay,
+                    datacenters = datacentersField.text.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                )
+                
+                settingsService.updateSettings(newSettings)
+                Messages.showInfoMessage(project, "Settings saved successfully!", "Settings")
+            } catch (e: Exception) {
+                Messages.showErrorDialog(project, "Failed to save settings: ${e.message}", "Error")
+            }
+        }
     }
     
     private fun updateTree() {

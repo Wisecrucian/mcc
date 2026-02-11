@@ -30,7 +30,11 @@ class MCCPortForwarderService {
     }
 
     fun addService(service: com.mcc.portforwarder.models.Service) {
+        println("🔍 [MCCService] addService() called for: ${service.name}")
+        println("🔍 [MCCService] Current services count: ${_services.value.size}")
         _services.value = _services.value + service
+        println("🔍 [MCCService] New services count: ${_services.value.size}")
+        println("🔍 [MCCService] Service added: ${service.name}, id: ${service.id}, hosts: ${service.hosts.size}")
         saveToStorage()
     }
 

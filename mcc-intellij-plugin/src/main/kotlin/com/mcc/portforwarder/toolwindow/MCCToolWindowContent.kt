@@ -67,18 +67,25 @@ class MCCToolWindowContent(private val project: Project) {
     }
     
     private fun updateEmptyState() {
+        println("🔍 [MCCToolWindow] updateEmptyState() called")
+        println("🔍 [MCCToolWindow] Services count: ${service.services.value.size}")
+        
         // Remove old help label if exists
         centerPanel.components.forEach { 
             if (it is JLabel) {
+                println("🔍 [MCCToolWindow] Removing old help label")
                 centerPanel.remove(it)
             }
         }
         
         // Add helper text when empty
         if (service.services.value.isEmpty()) {
+            println("🔍 [MCCToolWindow] Services empty, adding help label")
             val helpLabel = JLabel("<html><center><h2>No services configured</h2><br><br>Click <b>'Add Test Data'</b> to get started<br>or <b>'Import'</b> to load configuration</center></html>")
             helpLabel.horizontalAlignment = SwingConstants.CENTER
             centerPanel.add(helpLabel, BorderLayout.SOUTH)
+        } else {
+            println("🔍 [MCCToolWindow] Services not empty, no help label needed")
         }
         
         centerPanel.revalidate()
@@ -121,12 +128,16 @@ class MCCToolWindowContent(private val project: Project) {
     }
     
     private fun addTestData() {
+        println("🔍 [MCCToolWindow] addTestData() called")
+        
         val testService = com.mcc.portforwarder.models.Service(
             name = "Test Service"
         )
+        println("🔍 [MCCToolWindow] Created service: ${testService.name}, id: ${testService.id}")
         
         val location1 = LocationMapping(datacenter = "dc1", localPort = 9001)
         val location2 = LocationMapping(datacenter = "dc2", localPort = 9002)
+        println("🔍 [MCCToolWindow] Created locations: dc1, dc2")
         
         val testHost = Host(
             name = "Test Host",
@@ -134,9 +145,13 @@ class MCCToolWindowContent(private val project: Project) {
             remotePort = 8080,
             locations = listOf(location1, location2)
         )
+        println("🔍 [MCCToolWindow] Created host: ${testHost.name}, id: ${testHost.id}")
         
         testService.hosts.add(testHost)
+        println("🔍 [MCCToolWindow] Added host to service. Service hosts count: ${testService.hosts.size}")
+        
         service.addService(testService)
+        println("🔍 [MCCToolWindow] Added service. Total services: ${service.services.value.size}")
         
         Messages.showInfoMessage(
             "Test service added successfully!\n\nService: ${testService.name}\nHost: ${testHost.name}\nPorts: 8080→9001 (dc1), 8080→9002 (dc2)",
@@ -186,20 +201,26 @@ class MCCToolWindowContent(private val project: Project) {
     }
     
     private fun updateTree() {
+        println("🔍 [MCCToolWindow] updateTree() called")
         val root = treeModel.root as DefaultMutableTreeNode
         root.removeAllChildren()
         
+        println("🔍 [MCCToolWindow] Services count: ${service.services.value.size}")
+        
         service.services.value.forEach { svc ->
+            println("🔍 [MCCToolWindow] Processing service: ${svc.name}, hosts: ${svc.hosts.size}")
             val serviceNode = DefaultMutableTreeNode(svc.name)
             root.add(serviceNode)
             
             svc.hosts.forEach { host ->
+                println("🔍 [MCCToolWindow] Processing host: ${host.name}, ports: ${host.compatiblePorts.size}")
                 val hostNode = DefaultMutableTreeNode("${host.name} (${host.compatiblePorts.size} ports)")
                 serviceNode.add(hostNode)
                 
                 host.compatiblePorts.forEach { port ->
                     val processId = host.processId(port)
                     val state = service.getState(processId)
+                    println("🔍 [MCCToolWindow] Processing port: ${port.fromPort}→${port.toPort}, state: ${state.displayName}")
                     val portNode = DefaultMutableTreeNode(
                         "${state.emoji} ${port.fromPort}→${port.toPort} [${state.displayName}]"
                     )
@@ -208,8 +229,10 @@ class MCCToolWindowContent(private val project: Project) {
             }
         }
         
+        println("🔍 [MCCToolWindow] Root children count: ${root.childCount}")
         treeModel.reload()
         expandAll()
+        println("🔍 [MCCToolWindow] Tree updated and expanded")
     }
     
     private fun expandAll() {

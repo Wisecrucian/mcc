@@ -231,6 +231,37 @@ struct SettingsView: View {
                             }
                         }
                     }
+                    
+                    // About Section
+                    settingsSection(
+                        title: "About",
+                        description: ""
+                    ) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Version:")
+                                    .font(.system(size: 12, weight: .medium))
+                                Spacer()
+                                Text(VersionService.shared.getVersion())
+                                    .font(.system(size: 12, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Divider()
+                            
+                            HStack {
+                                Text("Application:")
+                                    .font(.system(size: 12, weight: .medium))
+                                Spacer()
+                                Text("MCC Port Forwarder")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(8)
+                        .background(Color.secondary.opacity(0.05))
+                        .cornerRadius(6)
+                    }
                 }
                 .padding(20)
             }

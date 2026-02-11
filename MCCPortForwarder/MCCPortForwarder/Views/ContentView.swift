@@ -56,6 +56,7 @@ struct ContentView: View {
                         }
                     }
                     .padding(.vertical, 8)
+                    .padding(.trailing, 8) // Отступ справа для скроллбара
                 }
             }
             

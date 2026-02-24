@@ -8,18 +8,29 @@ import Combine
 
 final class ProcessService: ObservableObject {
     
+    // MARK: - Internal State
+    
+    private enum InternalState {
+        case running
+        case stopped
+    }
+    
     // MARK: - Process Info
     
     private struct ProcessInfo {
         let process: Process
         let outputPipe: Pipe
         let errorPipe: Pipe
-        var state: ProcessState
+        var state: InternalState
+        // Indicates if this process is allowed to be auto‑restarted by retry logic
+        var shouldRetry: Bool
     }
     
     // MARK: - Properties
     
     private var processes: [UUID: ProcessInfo] = [:]
+    // Hosts that were intentionally stopped by user/UI; do not retry them
+    private var manuallyStoppedHosts: Set<UUID> = []
     private let queue = DispatchQueue(label: "com.mcc.processservice", attributes: .concurrent)
     
     // Log callback
@@ -40,6 +51,9 @@ final class ProcessService: ObservableObject {
     ) {
         queue.async(flags: .barrier) { [weak self] in
             guard let self = self else { return }
+            
+            // Clear manual stop flag when starting again
+            self.manuallyStoppedHosts.remove(hostId)
             
             // Check if already running
             if let existing = self.processes[hostId], existing.state == .running {
@@ -95,7 +109,8 @@ final class ProcessService: ObservableObject {
                     process: process,
                     outputPipe: outputPipe,
                     errorPipe: errorPipe,
-                    state: .running
+                    state: .running,
+                    shouldRetry: retryAttempts > 1
                 )
                 self.processes[hostId] = info
                 
@@ -176,6 +191,9 @@ final class ProcessService: ObservableObject {
                 return
             }
             
+            // Mark as manually stopped so monitorAndRetry won't restart it
+            self.manuallyStoppedHosts.insert(hostId)
+            
             let pid = info.process.processIdentifier
             
             // Log graceful termination attempt
@@ -204,7 +222,26 @@ final class ProcessService: ObservableObject {
     
     func getHostState(_ hostId: UUID) -> ProcessState {
         queue.sync {
-            processes[hostId]?.state ?? .stopped
+            guard let processInfo = processes[hostId] else {
+                return .stopped
+            }
+            // Convert internal state to external ProcessState
+            // ProcessService only knows running or stopped, detailed states managed by AppViewModel
+            switch processInfo.state {
+            case .running:
+                return processInfo.process.isRunning ? .connecting : .stopped
+            case .stopped:
+                return .stopped
+            }
+        }
+    }
+    
+    func isProcessRunning(_ hostId: UUID) -> Bool {
+        queue.sync {
+            if let processInfo = processes[hostId] {
+                return processInfo.process.isRunning
+            }
+            return false
         }
     }
     
@@ -227,7 +264,7 @@ final class ProcessService: ObservableObject {
             if var info = self.processes[hostId] {
                 let exitCode = process.terminationStatus
                 let terminationReason = process.terminationReason
-                info.state = exitCode == 0 ? .stopped : .error
+                info.state = .stopped
                 self.processes[hostId] = info
                 
                 // Log termination
@@ -295,7 +332,7 @@ final class ProcessService: ObservableObject {
         if isError {
             queue.async(flags: .barrier) { [weak self] in
                 if var info = self?.processes[hostId] {
-                    info.state = .error
+                    info.state = .stopped
                     self?.processes[hostId] = info
                 }
             }
@@ -396,11 +433,18 @@ final class ProcessService: ObservableObject {
             
             // Replace termination handler to include retry logic
             info.process.terminationHandler = { [weak self] terminatedProcess in
-                // First, handle normal termination
+                // First, handle normal termination bookkeeping
                 self?.handleProcessTermination(hostId: hostId, process: terminatedProcess)
                 
                 // Check if we should retry
                 guard let self = self else { return }
+                
+                // If host was manually stopped, do NOT retry
+                if self.manuallyStoppedHosts.contains(hostId) || !(self.processes[hostId]?.shouldRetry ?? false) {
+                    // Clean up manual flag for next starts
+                    self.manuallyStoppedHosts.remove(hostId)
+                    return
+                }
                 
                 let exitCode = terminatedProcess.terminationStatus
                 if exitCode != 0 && remainingAttempts > 0 {

@@ -1,2 +1,0 @@
-./gradlew: line 15: /Library/Java/JavaVirtualMachines/zulu-21.jdk/Contents/Home/bin/java: No such file or directory
-./gradlew: line 15: exec: /Library/Java/JavaVirtualMachines/zulu-21.jdk/Contents/Home/bin/java: cannot execute: No such file or directory

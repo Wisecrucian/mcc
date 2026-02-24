@@ -5,6 +5,9 @@ BUILD_DIR = ~/Library/Developer/Xcode/DerivedData/MCCPortForwarder-*/Build/Produ
 DIST_DIR = dist
 APP_NAME = MCCPortForwarder
 
+# Read version from build.number
+VERSION := $(shell cat MCCPortForwarder/build.number 2>/dev/null || echo "unknown")
+
 setup:
 	@./setup.sh
 
@@ -43,23 +46,25 @@ install: build
 # Create distributable archive
 archive: build
 	@echo "📦 Creating distributable archive..."
+	@echo "📌 Version: $(VERSION)"
 	@mkdir -p $(DIST_DIR)
 	@cp -R ./build/Build/Products/Release/$(APP_NAME).app $(DIST_DIR)/
-	@cd $(DIST_DIR) && zip -r ../$(APP_NAME).zip $(APP_NAME).app
-	@echo "✅ Archive created: $(APP_NAME).zip"
-	@ls -lh $(APP_NAME).zip
+	@cd $(DIST_DIR) && zip -r ../$(APP_NAME)-v$(VERSION).zip $(APP_NAME).app
+	@echo "✅ Archive created: $(APP_NAME)-v$(VERSION).zip"
+	@ls -lh $(APP_NAME)-v$(VERSION).zip
 
 # Full distribution package
 dist: clean build archive
 	@echo ""
 	@echo "🎉 Distribution package ready!"
 	@echo ""
-	@echo "📦 File: $(APP_NAME).zip"
-	@echo "📍 Location: $(shell pwd)/$(APP_NAME).zip"
-	@echo "📊 Size: $(shell ls -lh $(APP_NAME).zip | awk '{print $$5}')"
+	@echo "📦 File: $(APP_NAME)-v$(VERSION).zip"
+	@echo "📍 Location: $(shell pwd)/$(APP_NAME)-v$(VERSION).zip"
+	@echo "📊 Size: $(shell ls -lh $(APP_NAME)-v$(VERSION).zip | awk '{print $$5}')"
+	@echo "🏷️  Version: $(VERSION)"
 	@echo ""
 	@echo "To distribute:"
-	@echo "  1. Share $(APP_NAME).zip"
+	@echo "  1. Share $(APP_NAME)-v$(VERSION).zip"
 	@echo "  2. User extracts and copies .app to /Applications/"
 	@echo "  3. User runs from Applications or Spotlight"
 	@echo ""

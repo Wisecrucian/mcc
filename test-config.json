@@ -1,122 +1,81 @@
 {
   "version": "1.0",
+  "exportDate": "2026-02-11T10:30:00Z",
   "services": [
     {
-      "name": "Production API",
+      "name": "Production Services",
       "hosts": [
         {
-          "name": "API Server",
-          "hostnameTemplate": "api.prod.{location}.example.com",
-          "remotePort": 8080,
-          "locations": [
-            {"datacenter": "dc1", "localPort": 9001},
-            {"datacenter": "dc2", "localPort": 9002},
-            {"datacenter": "dc3", "localPort": 9003}
-          ]
-        },
-        {
-          "name": "Admin Panel",
-          "hostnameTemplate": "admin.prod.{location}.example.com",
-          "remotePort": 8081,
-          "locations": [
-            {"datacenter": "dc1", "localPort": 9101},
-            {"datacenter": "dc2", "localPort": 9102}
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Staging Environment",
-      "hosts": [
-        {
-          "name": "Web Server",
-          "hostnameTemplate": "web.staging.{location}.example.com",
-          "remotePort": 80,
-          "locations": [
-            {"datacenter": "dc1", "localPort": 8001},
-            {"datacenter": "dc2", "localPort": 8002}
-          ]
-        },
-        {
-          "name": "Database",
-          "hostnameTemplate": "db.staging.{location}.example.com",
+          "name": "PostgreSQL Master",
+          "hostnameTemplate": "postgres.prod.{location}.example.com",
           "remotePort": 5432,
           "locations": [
-            {"datacenter": "dc1", "localPort": 5433},
-            {"datacenter": "dc2", "localPort": 5434}
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Development",
-      "hosts": [
-        {
-          "name": "Dev Server",
-          "hostnameTemplate": "dev.{location}.example.com",
-          "remotePort": 3000,
-          "locations": [
-            {"datacenter": "dc1", "localPort": 3001}
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Monitoring",
-      "hosts": [
-        {
-          "name": "Grafana",
-          "hostnameTemplate": "grafana.{location}.example.com",
-          "remotePort": 3000,
-          "locations": [
-            {"datacenter": "dc1", "localPort": 4001},
-            {"datacenter": "dc2", "localPort": 4002},
-            {"datacenter": "dc3", "localPort": 4003}
+            {
+              "datacenter": "hc",
+              "localPort": 9001
+            },
+            {
+              "datacenter": "kc",
+              "localPort": 9002
+            }
           ]
         },
         {
-          "name": "Prometheus",
-          "hostnameTemplate": "prometheus.{location}.example.com",
-          "remotePort": 9090,
-          "locations": [
-            {"datacenter": "dc1", "localPort": 9091},
-            {"datacenter": "dc2", "localPort": 9092}
-          ]
-        },
-        {
-          "name": "Alertmanager",
-          "hostnameTemplate": "alertmanager.{location}.example.com",
-          "remotePort": 9093,
-          "locations": [
-            {"datacenter": "dc1", "localPort": 9094},
-            {"datacenter": "dc2", "localPort": 9095}
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Cache Services",
-      "hosts": [
-        {
-          "name": "Redis",
-          "hostnameTemplate": "redis.{location}.example.com",
+          "name": "Redis Cache",
+          "hostnameTemplate": "redis.prod.{location}.example.com",
           "remotePort": 6379,
           "locations": [
-            {"datacenter": "dc1", "localPort": 6380},
-            {"datacenter": "dc2", "localPort": 6381},
-            {"datacenter": "dc3", "localPort": 6382}
-          ]
-        },
-        {
-          "name": "Memcached",
-          "hostnameTemplate": "memcached.{location}.example.com",
-          "remotePort": 11211,
-          "locations": [
-            {"datacenter": "dc1", "localPort": 11212},
-            {"datacenter": "dc2", "localPort": 11213}
+            {
+              "datacenter": "hc",
+              "localPort": 9101
+            },
+            {
+              "datacenter": "kc",
+              "localPort": 9102
+            },
+            {
+              "datacenter": "pc",
+              "localPort": 9103
+            }
           ]
         }
+      ],
+      "childServices": [
+        {
+          "name": "Monitoring",
+          "hosts": [
+            {
+              "name": "Prometheus",
+              "hostnameTemplate": "prometheus.monitoring.{location}.example.com",
+              "remotePort": 9090,
+              "locations": [
+                {
+                  "datacenter": "hc",
+                  "localPort": 9201
+                }
+              ]
+            }
+          ],
+          "childServices": []
+        }
       ]
+    },
+    {
+      "name": "Development Services",
+      "hosts": [
+        {
+          "name": "MySQL Dev",
+          "hostnameTemplate": "mysql.dev.{location}.example.com",
+          "remotePort": 3306,
+          "locations": [
+            {
+              "datacenter": "hc",
+              "localPort": 9301
+            }
+          ]
+        }
+      ],
+      "childServices": []
     }
   ],
   "settings": {
@@ -124,9 +83,15 @@
     "loginCommand": "/usr/local/bin/mcc login",
     "logoutCommand": "/usr/local/bin/mcc logout",
     "retryEnabled": true,
-    "retryAttempts": 3,
-    "retryDelay": 5,
-    "datacenters": ["dc1", "dc2", "dc3"]
+    "retryAttempts": 5,
+    "retryDelay": 3,
+    "datacenters": [
+      "hc",
+      "kc",
+      "pc"
+    ]
   }
 }
+
+
 

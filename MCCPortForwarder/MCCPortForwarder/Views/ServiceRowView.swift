@@ -6,12 +6,12 @@
 import SwiftUI
 
 struct ServiceRowView: View {
-    
+
     let service: Service
     let state: ProcessState
     let level: Int // For indentation in hierarchy
     @Binding var isExpanded: Bool
-    
+
     let onStart: () -> Void
     let onStop: () -> Void
     let onEdit: () -> Void
@@ -23,13 +23,13 @@ struct ServiceRowView: View {
     let onShowLogs: (UUID) -> Void
     let onKillPort: ((Host, PortMapping) -> Void)?
     let onDelete: () -> Void
-    
+
     let getHostState: (UUID) -> ProcessState
     let getPortState: (Host, PortMapping) -> ProcessState
     let onTogglePort: (Host, PortMapping) -> Void
     let onShowLogsForPort: (UUID, String) -> Void
     let renderChildService: (Service, Int) -> AnyView
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             // Service header
@@ -43,7 +43,7 @@ struct ServiceRowView: View {
                             .padding(.leading, 8)
                     }
                 }
-                
+
                 // Expand/collapse button
                 Button(action: { isExpanded.toggle() }) {
                     Image(systemName: "chevron.right")
@@ -51,23 +51,23 @@ struct ServiceRowView: View {
                         .animation(.easeInOut(duration: 0.2), value: isExpanded)
                 }
                 .buttonStyle(.plain)
-                
+
                 // Status indicator
                 Circle()
                     .fill(statusColor)
                     .frame(width: 10, height: 10)
-                
+
                 // Service name
                 Text(service.name)
                     .font(.system(size: 14, weight: .semibold))
-                
+
                 Spacer()
-                
+
                 // Host count (total including children)
                 Text("\(service.totalHostCount) hosts")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
-                
+
                 // Edit button
                 Button(action: onEdit) {
                     Image(systemName: "pencil")
@@ -75,9 +75,9 @@ struct ServiceRowView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Edit service")
-                
+
                 // Start/Stop buttons
-                if state == .running {
+                if state.isActive || state == .ready {
                     Button("Stop") {
                         onStop()
                     }
@@ -92,7 +92,7 @@ struct ServiceRowView: View {
                     .foregroundColor(.green)
                     .font(.system(size: 11))
                 }
-                
+
                 // Delete service
                 Button(action: onDelete) {
                     Image(systemName: "trash")
@@ -101,8 +101,8 @@ struct ServiceRowView: View {
                 .buttonStyle(.plain)
                 .help("Delete service")
             }
-            .padding(.leading, CGFloat(level * 16))
-            
+            .padding(.leading, 16 + CGFloat(level * 16))
+
             // Expanded content
             if isExpanded {
                 VStack(alignment: .leading, spacing: 4) {
@@ -136,12 +136,12 @@ struct ServiceRowView: View {
                         )
                         .padding(.leading, CGFloat(level * 16))
                     }
-                    
+
                     // Child services (recursive)
                     ForEach(service.childServices) { childService in
                         renderChildService(childService, level + 1)
                     }
-                    
+
                     // Action buttons
                     HStack(spacing: 12) {
                         Button(action: onAddHost) {
@@ -153,7 +153,7 @@ struct ServiceRowView: View {
                             .foregroundColor(.accentColor)
                         }
                         .buttonStyle(.plain)
-                        
+
                         Button(action: onAddChildService) {
                             HStack {
                                 Image(systemName: "folder.badge.plus")
@@ -171,19 +171,27 @@ struct ServiceRowView: View {
         }
         .padding(.vertical, 6)
     }
-    
+
     private var statusColor: Color {
         switch state {
         case .stopped:
             return .gray
-        case .running:
+        case .connecting:
+            return .blue
+        case .authenticating:
+            return .yellow
+        case .ready:
             return .green
         case .error:
             return .red
+        case .timeout:
+            return .orange
         case .portInUse:
             return .orange
         case .restarting:
             return .yellow
+        case .disconnected:
+            return .purple
         }
     }
 }

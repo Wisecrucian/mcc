@@ -15,17 +15,51 @@ struct HostRowView: View {
     let onDelete: () -> Void
     let onKillPort: ((PortMapping) -> Void)?
     
-    @State private var showingKillConfirm: Int? = nil
+    @State private var portToKill: PortMapping? = nil
     let getPortState: (PortMapping) -> ProcessState
     let onTogglePort: (PortMapping) -> Void
     let onShowLogs: (UUID, String) -> Void
     
     @State private var isExpanded = false
     
+    private var isRunning: Bool {
+        state.isActive || state == .ready
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Host header
-            HStack(spacing: 8) {
+            hostHeader
+            
+            if isExpanded {
+                portsList
+            }
+        }
+        .confirmationDialog(
+            portToKill.map { "Kill process on local port \($0.toPort)?" } ?? "",
+            isPresented: Binding(
+                get: { portToKill != nil },
+                set: { if !$0 { portToKill = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Kill Process", role: .destructive) {
+                if let port = portToKill, let killAction = onKillPort {
+                    killAction(port)
+                    portToKill = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                portToKill = nil
+            }
+        } message: {
+            if let port = portToKill {
+                Text(verbatim: "This will terminate any process using local port \(String(port.toPort))")
+            }
+        }
+    }
+    
+    private var hostHeader: some View {
+        HStack(spacing: 8) {
                 // Expand/collapse button
                 Button(action: { isExpanded.toggle() }) {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
@@ -94,11 +128,11 @@ struct HostRowView: View {
                 
                 // Toggle all button
                 Button(action: onToggle) {
-                    Image(systemName: state == .running ? "stop.circle.fill" : "play.circle.fill")
-                        .foregroundColor(state == .running ? .red : .green)
+                    Image(systemName: isRunning ? "stop.circle.fill" : "play.circle.fill")
+                        .foregroundColor(isRunning ? .red : .green)
                 }
                 .buttonStyle(.plain)
-                .help(state == .running ? "Stop all port mappings" : "Start all port mappings")
+                .help(isRunning ? "Stop all port mappings" : "Start all port mappings")
                 
                 // Delete button
                 Button(action: onDelete) {
@@ -110,29 +144,30 @@ struct HostRowView: View {
             }
             .padding(.vertical, 4)
             .padding(.leading, 16)
-            
-            // Individual ports (expanded)
-            if isExpanded && !host.compatiblePorts.isEmpty {
-                VStack(spacing: 2) {
-                    ForEach(host.compatiblePorts) { port in
-                        let processId = host.processId(for: port)
-                        let portName = "\(host.name) - Port \(String(port.fromPort))→\(String(port.toPort))"
-                        PortRowView(
-                            host: host,
-                            port: port,
-                            state: getPortState(port),
-                            onToggle: { onTogglePort(port) },
-                            onLogs: { 
-                                onShowLogs(processId, portName)
-                            },
-                            onKillPort: onKillPort != nil ? {
-                                onKillPort?(port)
-                            } : nil
-                        )
-                    }
+    }
+    
+    @ViewBuilder
+    private var portsList: some View {
+        if !host.compatiblePorts.isEmpty {
+            VStack(spacing: 2) {
+                ForEach(host.compatiblePorts) { port in
+                    let processId = host.processId(for: port)
+                    let portName = "\(host.name) - Port \(String(port.fromPort))→\(String(port.toPort))"
+                    PortRowView(
+                        host: host,
+                        port: port,
+                        state: getPortState(port),
+                        onToggle: { onTogglePort(port) },
+                        onLogs: { 
+                            onShowLogs(processId, portName)
+                        },
+                        onKillPort: onKillPort != nil ? {
+                            portToKill = port
+                        } : nil
+                    )
                 }
-                .padding(.top, 4)
             }
+            .padding(.top, 4)
         }
     }
     
@@ -140,14 +175,22 @@ struct HostRowView: View {
         switch state {
         case .stopped:
             return .gray
-        case .running:
+        case .connecting:
+            return .blue
+        case .authenticating:
+            return .yellow
+        case .ready:
             return .green
         case .error:
             return .red
+        case .timeout:
+            return .orange
         case .portInUse:
             return .orange
         case .restarting:
             return .yellow
+        case .disconnected:
+            return .purple
         }
     }
 }

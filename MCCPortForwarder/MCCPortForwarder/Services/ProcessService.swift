@@ -153,20 +153,27 @@ final class ProcessService: ObservableObject {
                     )
                     
                     DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(retryDelay)) {
-                        // Notify about retry attempt
-                        onRetryAttempt?(retryAttempts - 1)
-                        
-                        self.startHost(
-                            hostId,
-                            command: command,
-                            hostname: hostname,
-                            fromPort: fromPort,
-                            toPort: toPort,
-                            retryAttempts: retryAttempts - 1,
-                            retryDelay: retryDelay,
-                            onRetryAttempt: onRetryAttempt,
-                            completion: completion
-                        )
+                        // Re-check: user may have pressed Stop during the retry delay window.
+                        self.queue.async(flags: .barrier) {
+                            if self.manuallyStoppedHosts.remove(hostId) != nil {
+                                return
+                            }
+
+                            // Notify about retry attempt
+                            onRetryAttempt?(retryAttempts - 1)
+
+                            self.startHost(
+                                hostId,
+                                command: command,
+                                hostname: hostname,
+                                fromPort: fromPort,
+                                toPort: toPort,
+                                retryAttempts: retryAttempts - 1,
+                                retryDelay: retryDelay,
+                                onRetryAttempt: onRetryAttempt,
+                                completion: completion
+                            )
+                        }
                     }
                 } else {
                     self.onLogOutput?(
@@ -185,15 +192,19 @@ final class ProcessService: ObservableObject {
     
     func stopHost(_ hostId: UUID) {
         queue.async(flags: .barrier) { [weak self] in
-            guard let self = self,
-                  let info = self.processes[hostId],
+            guard let self = self else { return }
+
+            // Always mark as manually stopped, even if the process already
+            // terminated and its entry was cleaned up (e.g. we're inside a
+            // retry-delay window). Otherwise a pending scheduled retry won't
+            // see that the user asked to stop and will restart anyway.
+            self.manuallyStoppedHosts.insert(hostId)
+
+            guard let info = self.processes[hostId],
                   info.process.isRunning else {
                 return
             }
-            
-            // Mark as manually stopped so monitorAndRetry won't restart it
-            self.manuallyStoppedHosts.insert(hostId)
-            
+
             let pid = info.process.processIdentifier
             
             // Log graceful termination attempt
@@ -456,20 +467,27 @@ final class ProcessService: ObservableObject {
                     
                     // Retry after delay
                     DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(retryDelay)) {
-                        // Notify about retry attempt
-                        onRetryAttempt?(remainingAttempts)
-                        
-                        self.startHost(
-                            hostId,
-                            command: command,
-                            hostname: hostname,
-                            fromPort: fromPort,
-                            toPort: toPort,
-                            retryAttempts: remainingAttempts,
-                            retryDelay: retryDelay,
-                            onRetryAttempt: onRetryAttempt,
-                            completion: { _ in } // Ignore completion for retries
-                        )
+                        // Re-check: user may have pressed Stop during the retry delay window.
+                        self.queue.async(flags: .barrier) {
+                            if self.manuallyStoppedHosts.remove(hostId) != nil {
+                                return
+                            }
+
+                            // Notify about retry attempt
+                            onRetryAttempt?(remainingAttempts)
+
+                            self.startHost(
+                                hostId,
+                                command: command,
+                                hostname: hostname,
+                                fromPort: fromPort,
+                                toPort: toPort,
+                                retryAttempts: remainingAttempts,
+                                retryDelay: retryDelay,
+                                onRetryAttempt: onRetryAttempt,
+                                completion: { _ in } // Ignore completion for retries
+                            )
+                        }
                     }
                 } else if exitCode != 0 {
                     // No more retries

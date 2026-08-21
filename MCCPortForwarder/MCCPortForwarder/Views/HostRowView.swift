@@ -152,15 +152,12 @@ struct HostRowView: View {
             VStack(spacing: 2) {
                 ForEach(host.compatiblePorts) { port in
                     let processId = host.processId(for: port)
-                    let resolvedPortHostname: String = {
-                        if host.usesNewStructure {
-                            if let location = host.locations.first(where: { $0.localPort == port.toPort }) {
-                                return host.resolvedHostname(for: location)
-                            }
-                        }
-                        return host.compatibleHostname
-                    }()
-                    let portName = "\(resolvedPortHostname) - Port \(String(port.fromPort))→\(String(port.toPort))"
+                    let matchedLocation = host.usesNewStructure
+                        ? host.locations.first(where: { $0.localPort == port.toPort })
+                        : nil
+                    let resolvedPortHostname = matchedLocation.map(host.resolvedHostname(for:)) ?? host.compatibleHostname
+                    let instanceSuffix = matchedLocation.flatMap(host.instanceLabel(for:)).map { " · \($0)" } ?? ""
+                    let portName = "\(resolvedPortHostname)\(instanceSuffix) - Port \(String(port.fromPort))→\(String(port.toPort))"
                     PortRowView(
                         host: host,
                         port: port,

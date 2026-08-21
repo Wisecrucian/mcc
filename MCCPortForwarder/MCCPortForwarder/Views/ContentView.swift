@@ -30,7 +30,8 @@ struct ContentView: View {
     @State private var hostTemplate = ""
     @State private var hostRemotePort = ""
     @State private var selectedDatacenters: Set<String> = []
-    @State private var datacenterPorts: [String: String] = [:] // datacenter -> localPort
+    @State private var datacenterPorts: [String: String] = [:] // datacenter -> base localPort
+    @State private var datacenterInstanceCounts: [String: Int] = [:] // datacenter -> instance count
     @State private var startingPort = "9999"
     
     var body: some View {
@@ -405,11 +406,11 @@ struct ContentView: View {
                         .foregroundColor(.secondary)
                     TextField("e.g., href.dfsdf.{location}.ru", text: $hostTemplate)
                         .textFieldStyle(.roundedBorder)
-                    Text("Use {location} placeholder for datacenter")
+                    Text("Use {location} for datacenter, {instance} for the instance number")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
                 }
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Remote Port (on server)")
                         .font(.system(size: 11))
@@ -426,109 +427,17 @@ struct ContentView: View {
                     .disableAutocorrection(true)
                     .font(.system(size: 12, design: .monospaced))
                 }
-                
+
                 Divider()
-                
-                // Datacenters section
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Select Datacenters")
-                            .font(.system(size: 13, weight: .medium))
-                        Spacer()
-                        Text("\(selectedDatacenters.count) selected")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    if viewModel.settingsService.datacenters.isEmpty {
-                        Text("No datacenters configured. Add them in Settings first.")
-                            .font(.system(size: 11))
-                            .foregroundColor(.orange)
-                            .padding(8)
-                    } else {
-                        VStack(spacing: 8) {
-                            ForEach(viewModel.settingsService.datacenters, id: \.self) { dc in
-                                HStack {
-                                    Toggle(isOn: Binding(
-                                        get: { selectedDatacenters.contains(dc) },
-                                        set: { isSelected in
-                                            if isSelected {
-                                                selectedDatacenters.insert(dc)
-                                                // Auto-assign port if not set
-                                                if datacenterPorts[dc] == nil {
-                                                    let basePort = Int(startingPort) ?? 9999
-                                                    let offset = selectedDatacenters.count - 1
-                                                    datacenterPorts[dc] = "\(basePort + offset)"
-                                                }
-                                            } else {
-                                                selectedDatacenters.remove(dc)
-                                                datacenterPorts.removeValue(forKey: dc)
-                                            }
-                                        }
-                                    )) {
-                                        Text(dc)
-                                            .font(.system(size: 12, design: .monospaced))
-                                    }
-                                    .toggleStyle(.checkbox)
-                                    
-                                    Spacer()
-                                    
-                                    if selectedDatacenters.contains(dc) {
-                                        Text("→")
-                                            .foregroundColor(.secondary)
-                                        TextField("Port", text: Binding(
-                                            get: { datacenterPorts[dc] ?? "" },
-                                            set: { newValue in
-                                                // Filter only digits
-                                                let filtered = newValue.filter { $0.isNumber }
-                                                datacenterPorts[dc] = filtered
-                                            }
-                                        ))
-                                        .textFieldStyle(.roundedBorder)
-                                        .frame(width: 70)
-                                        .multilineTextAlignment(.center)
-                                        .disableAutocorrection(true)
-                                        .font(.system(size: 12, design: .monospaced))
-                                    }
-                                }
-                            }
-                        }
-                        
-                        HStack {
-                            Text("Starting port:")
-                                .font(.system(size: 10))
-                            TextField("9999", text: Binding(
-                                get: { startingPort },
-                                set: { newValue in
-                                    let filtered = newValue.filter { $0.isNumber }
-                                    startingPort = filtered
-                                }
-                            ))
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 60)
-                            .disableAutocorrection(true)
-                            .font(.system(size: 12, design: .monospaced))
-                            Button("Auto-assign") {
-                                let basePort = Int(startingPort) ?? 9999
-                                for (index, dc) in selectedDatacenters.sorted().enumerated() {
-                                    datacenterPorts[dc] = "\(basePort + index)"
-                                }
-                            }
-                            .font(.system(size: 10))
-                        }
-                        .padding(.top, 4)
-                    }
-                }
-                .padding(12)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(8)
-                
+
+                datacenterSelectionSection
+
                 HStack {
                     Button("Cancel") {
                         showingAddHost = nil
                         resetHostForm()
                     }
-                    
+
                     Button("Add Host") {
                         addNewHostWithDatacenters(to: serviceId)
                     }
@@ -540,6 +449,147 @@ struct ContentView: View {
         }
         .frame(width: 450, height: 600)
     }
+
+    // MARK: - Datacenter Selection Section (shared by Add/Edit Host sheets)
+
+    @ViewBuilder
+    private var datacenterSelectionSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Select Datacenters")
+                    .font(.system(size: 13, weight: .medium))
+                Spacer()
+                Text("\(selectedDatacenters.count) selected")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+
+            if viewModel.settingsService.datacenters.isEmpty {
+                Text("No datacenters configured. Add them in Settings first.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.orange)
+                    .padding(8)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(viewModel.settingsService.datacenters, id: \.self) { dc in
+                        datacenterRow(dc)
+                    }
+                }
+
+                HStack {
+                    Text("Starting port:")
+                        .font(.system(size: 10))
+                    TextField("9999", text: Binding(
+                        get: { startingPort },
+                        set: { newValue in
+                            let filtered = newValue.filter { $0.isNumber }
+                            startingPort = filtered
+                        }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 60)
+                    .disableAutocorrection(true)
+                    .font(.system(size: 12, design: .monospaced))
+                    Button("Auto-assign") {
+                        reassignDatacenterPorts()
+                    }
+                    .font(.system(size: 10))
+                }
+                .padding(.top, 4)
+            }
+        }
+        .padding(12)
+        .background(Color.secondary.opacity(0.05))
+        .cornerRadius(8)
+    }
+
+    @ViewBuilder
+    private func datacenterRow(_ dc: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Toggle(isOn: Binding(
+                    get: { selectedDatacenters.contains(dc) },
+                    set: { isSelected in
+                        if isSelected {
+                            let basePort = nextAvailableBasePort()
+                            selectedDatacenters.insert(dc)
+                            if datacenterInstanceCounts[dc] == nil {
+                                datacenterInstanceCounts[dc] = 1
+                            }
+                            if datacenterPorts[dc] == nil {
+                                datacenterPorts[dc] = "\(basePort)"
+                            }
+                        } else {
+                            selectedDatacenters.remove(dc)
+                            datacenterPorts.removeValue(forKey: dc)
+                            datacenterInstanceCounts.removeValue(forKey: dc)
+                        }
+                    }
+                )) {
+                    Text(dc)
+                        .font(.system(size: 12, design: .monospaced))
+                }
+                .toggleStyle(.checkbox)
+
+                Spacer()
+
+                if selectedDatacenters.contains(dc) {
+                    Text("→")
+                        .foregroundColor(.secondary)
+                    TextField("Port", text: Binding(
+                        get: { datacenterPorts[dc] ?? "" },
+                        set: { newValue in
+                            // Filter only digits
+                            let filtered = newValue.filter { $0.isNumber }
+                            datacenterPorts[dc] = filtered
+                        }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 70)
+                    .multilineTextAlignment(.center)
+                    .disableAutocorrection(true)
+                    .font(.system(size: 12, design: .monospaced))
+
+                    Stepper(
+                        "×\(datacenterInstanceCounts[dc] ?? 1)",
+                        value: Binding(
+                            get: { datacenterInstanceCounts[dc] ?? 1 },
+                            set: { datacenterInstanceCounts[dc] = $0 }
+                        ),
+                        in: 1...9
+                    )
+                    .font(.system(size: 11))
+                    .fixedSize()
+                }
+            }
+
+            if selectedDatacenters.contains(dc),
+               let count = datacenterInstanceCounts[dc], count > 1,
+               let basePort = Int(datacenterPorts[dc] ?? "") {
+                Text("Instances → " + (0..<count).map { "\(basePort + $0)" }.joined(separator: ", "))
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 20)
+            }
+        }
+    }
+
+    // Next free base port, packed after all currently-selected datacenters' instances
+    private func nextAvailableBasePort() -> Int {
+        let base = Int(startingPort) ?? 9999
+        let used = selectedDatacenters.reduce(0) { $0 + (datacenterInstanceCounts[$1] ?? 1) }
+        return base + used
+    }
+
+    // Repacks every selected datacenter's ports sequentially, back to back with its instance count
+    private func reassignDatacenterPorts() {
+        let base = Int(startingPort) ?? 9999
+        var cursor = base
+        for dc in selectedDatacenters.sorted() {
+            datacenterPorts[dc] = "\(cursor)"
+            cursor += datacenterInstanceCounts[dc] ?? 1
+        }
+    }
     
     private func addNewHostWithDatacenters(to serviceId: UUID) {
         guard !hostName.isEmpty,
@@ -547,16 +597,19 @@ struct ContentView: View {
               let remotePort = Int(hostRemotePort),
               !selectedDatacenters.isEmpty else { return }
         
-        // Create locations from selected datacenters
+        // Create locations from selected datacenters, expanding each into its instance count
         var locations: [LocationMapping] = []
         for dc in selectedDatacenters.sorted() {
-            if let portStr = datacenterPorts[dc], let localPort = Int(portStr) {
-                locations.append(LocationMapping(datacenter: dc, localPort: localPort))
+            if let portStr = datacenterPorts[dc], let basePort = Int(portStr) {
+                let count = max(1, datacenterInstanceCounts[dc] ?? 1)
+                for i in 0..<count {
+                    locations.append(LocationMapping(datacenter: dc, instance: i + 1, localPort: basePort + i))
+                }
             }
         }
-        
+
         guard !locations.isEmpty else { return }
-        
+
         // Add host with new structure
         viewModel.addHostWithLocations(
             to: serviceId,
@@ -582,6 +635,7 @@ struct ContentView: View {
         hostRemotePort = ""
         selectedDatacenters = []
         datacenterPorts = [:]
+        datacenterInstanceCounts = [:]
         startingPort = "9999"
     }
     
@@ -610,11 +664,11 @@ struct ContentView: View {
                         .foregroundColor(.secondary)
                     TextField("e.g., href.dfsdf.{location}.ru", text: $hostTemplate)
                         .textFieldStyle(.roundedBorder)
-                    Text("Use {location} placeholder for datacenter")
+                    Text("Use {location} for datacenter, {instance} for the instance number")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
                 }
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Remote Port (on server)")
                         .font(.system(size: 11))
@@ -631,107 +685,17 @@ struct ContentView: View {
                     .disableAutocorrection(true)
                     .font(.system(size: 12, design: .monospaced))
                 }
-                
+
                 Divider()
-                
-                // Datacenters section
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Select Datacenters")
-                            .font(.system(size: 13, weight: .medium))
-                        Spacer()
-                        Text("\(selectedDatacenters.count) selected")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    if viewModel.settingsService.datacenters.isEmpty {
-                        Text("No datacenters configured. Add them in Settings first.")
-                            .font(.system(size: 11))
-                            .foregroundColor(.orange)
-                            .padding(8)
-                    } else {
-                        VStack(spacing: 8) {
-                            ForEach(viewModel.settingsService.datacenters, id: \.self) { dc in
-                                HStack {
-                                    Toggle(isOn: Binding(
-                                        get: { selectedDatacenters.contains(dc) },
-                                        set: { isSelected in
-                                            if isSelected {
-                                                selectedDatacenters.insert(dc)
-                                                if datacenterPorts[dc] == nil {
-                                                    let basePort = Int(startingPort) ?? 9999
-                                                    let offset = selectedDatacenters.count - 1
-                                                    datacenterPorts[dc] = "\(basePort + offset)"
-                                                }
-                                            } else {
-                                                selectedDatacenters.remove(dc)
-                                                datacenterPorts.removeValue(forKey: dc)
-                                            }
-                                        }
-                                    )) {
-                                        Text(dc)
-                                            .font(.system(size: 12, design: .monospaced))
-                                    }
-                                    .toggleStyle(.checkbox)
-                                    
-                                    Spacer()
-                                    
-                                    if selectedDatacenters.contains(dc) {
-                                        Text("→")
-                                            .foregroundColor(.secondary)
-                                        TextField("Port", text: Binding(
-                                            get: { datacenterPorts[dc] ?? "" },
-                                            set: { newValue in
-                                                let filtered = newValue.filter { $0.isNumber }
-                                                datacenterPorts[dc] = filtered
-                                            }
-                                        ))
-                                        .textFieldStyle(.roundedBorder)
-                                        .frame(width: 70)
-                                        .multilineTextAlignment(.center)
-                                        .disableAutocorrection(true)
-                                        .font(.system(size: 12, design: .monospaced))
-                                    }
-                                }
-                            }
-                        }
-                        
-                        HStack {
-                            Text("Starting port:")
-                                .font(.system(size: 10))
-                            TextField("9999", text: Binding(
-                                get: { startingPort },
-                                set: { newValue in
-                                    let filtered = newValue.filter { $0.isNumber }
-                                    startingPort = filtered
-                                }
-                            ))
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 60)
-                            .disableAutocorrection(true)
-                            .font(.system(size: 12, design: .monospaced))
-                            Button("Auto-assign") {
-                                let basePort = Int(startingPort) ?? 9999
-                                for (index, dc) in selectedDatacenters.sorted().enumerated() {
-                                    datacenterPorts[dc] = "\(basePort + index)"
-                                }
-                            }
-                            .font(.system(size: 10))
-                        }
-                        .padding(.top, 4)
-                    }
-                }
-                .padding(12)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(8)
-                
+
+                datacenterSelectionSection
+
                 HStack {
                     Button("Cancel") {
                         showingEditHost = nil
                         resetHostForm()
                     }
-                    
+
                     Button("Save Changes") {
                         saveEditedHost(editData: editData)
                     }
@@ -749,13 +713,25 @@ struct ContentView: View {
         hostTemplate = host.hostnameTemplate
         hostRemotePort = "\(host.remotePort)"
         
-        // Load locations
+        // Load locations, grouped by datacenter (each group may span several instances)
         selectedDatacenters = Set(host.locations.map { $0.datacenter })
-        datacenterPorts = Dictionary(uniqueKeysWithValues: host.locations.map { ($0.datacenter, "\($0.localPort)") })
-        
-        // Set starting port to first location's port or default
-        if let firstPort = host.locations.first?.localPort {
-            startingPort = "\(firstPort)"
+
+        var ports: [String: String] = [:]
+        var counts: [String: Int] = [:]
+        for dc in selectedDatacenters {
+            let group = host.locations.filter { $0.datacenter == dc }
+            counts[dc] = group.count
+            let basePort = group.first(where: { $0.instance == 1 })?.localPort
+                ?? group.map(\.localPort).min()
+                ?? 9999
+            ports[dc] = "\(basePort)"
+        }
+        datacenterPorts = ports
+        datacenterInstanceCounts = counts
+
+        // Set starting port to the lowest assigned port, or default
+        if let minPort = host.locations.map({ $0.localPort }).min() {
+            startingPort = "\(minPort)"
         } else {
             startingPort = "9999"
         }
@@ -767,16 +743,19 @@ struct ContentView: View {
               let remotePort = Int(hostRemotePort),
               !selectedDatacenters.isEmpty else { return }
         
-        // Create locations from selected datacenters
+        // Create locations from selected datacenters, expanding each into its instance count
         var locations: [LocationMapping] = []
         for dc in selectedDatacenters.sorted() {
-            if let portStr = datacenterPorts[dc], let localPort = Int(portStr) {
-                locations.append(LocationMapping(datacenter: dc, localPort: localPort))
+            if let portStr = datacenterPorts[dc], let basePort = Int(portStr) {
+                let count = max(1, datacenterInstanceCounts[dc] ?? 1)
+                for i in 0..<count {
+                    locations.append(LocationMapping(datacenter: dc, instance: i + 1, localPort: basePort + i))
+                }
             }
         }
-        
+
         guard !locations.isEmpty else { return }
-        
+
         // Update host
         viewModel.updateHostWithLocations(
             hostId: editData.host.id,

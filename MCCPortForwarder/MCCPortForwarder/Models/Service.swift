@@ -51,7 +51,15 @@ struct Host: Identifiable, Codable, Hashable {
     
     // Helper: Resolve hostname for a specific location
     func resolvedHostname(for location: LocationMapping) -> String {
-        hostnameTemplate.replacingOccurrences(of: "{location}", with: location.datacenter)
+        hostnameTemplate
+            .replacingOccurrences(of: "{location}", with: location.datacenter)
+            .replacingOccurrences(of: "{instance}", with: String(location.instance))
+    }
+
+    // Helper: Human-readable instance label, only when the datacenter has more than one instance
+    func instanceLabel(for location: LocationMapping) -> String? {
+        let siblingCount = locations.filter { $0.datacenter == location.datacenter }.count
+        return siblingCount > 1 ? "instance \(location.instance)" : nil
     }
     
     // Generate unique ID for each location process

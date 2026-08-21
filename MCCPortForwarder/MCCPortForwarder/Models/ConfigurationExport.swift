@@ -40,7 +40,26 @@ struct ConfigurationExport: Codable {
     /// Location without UUID - only user data
     struct LocationExport: Codable {
         var datacenter: String
+        var instance: Int
         var localPort: Int
+
+        enum CodingKeys: String, CodingKey {
+            case datacenter, instance, localPort
+        }
+
+        init(datacenter: String, instance: Int, localPort: Int) {
+            self.datacenter = datacenter
+            self.instance = instance
+            self.localPort = localPort
+        }
+
+        // Configs exported before `instance` existed still decode, defaulting to 1.
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            datacenter = try container.decode(String.self, forKey: .datacenter)
+            localPort = try container.decode(Int.self, forKey: .localPort)
+            instance = try container.decodeIfPresent(Int.self, forKey: .instance) ?? 1
+        }
     }
 }
 
@@ -88,13 +107,15 @@ extension ConfigurationExport.LocationExport {
     /// Convert from full LocationMapping model (strips UUIDs)
     init(from location: LocationMapping) {
         self.datacenter = location.datacenter
+        self.instance = location.instance
         self.localPort = location.localPort
     }
-    
+
     /// Convert to full LocationMapping model (generates new UUIDs)
     func toLocation() -> LocationMapping {
         LocationMapping(
             datacenter: datacenter,
+            instance: instance,
             localPort: localPort
         )
     }

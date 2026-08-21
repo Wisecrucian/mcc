@@ -14,15 +14,19 @@ struct PortRowView: View {
     let onLogs: () -> Void
     let onKillPort: (() -> Void)?
     
+    // New structure: toPort == localPort, so we can map this port to a specific location.
+    private var matchedLocation: LocationMapping? {
+        guard host.usesNewStructure else { return nil }
+        return host.locations.first(where: { $0.localPort == port.toPort })
+    }
+
     private var resolvedHostname: String {
-        // New structure: toPort == localPort, so we can map this port to a specific location.
-        if host.usesNewStructure {
-            if let location = host.locations.first(where: { $0.localPort == port.toPort }) {
-                return host.resolvedHostname(for: location)
-            }
-        }
         // Legacy: compatibleHostname is already a plain hostname (no {location} placeholder).
-        return host.compatibleHostname
+        matchedLocation.map(host.resolvedHostname(for:)) ?? host.compatibleHostname
+    }
+
+    private var instanceLabel: String? {
+        matchedLocation.flatMap(host.instanceLabel(for:))
     }
     
     var body: some View {
@@ -33,11 +37,23 @@ struct PortRowView: View {
                 .frame(width: 6, height: 6)
             
             VStack(alignment: .leading, spacing: 2) {
-                // Actual hostname substituted from {location} placeholder
-                Text(resolvedHostname)
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
+                // Actual hostname substituted from {location}/{instance} placeholders
+                HStack(spacing: 4) {
+                    Text(resolvedHostname)
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+
+                    if let instanceLabel {
+                        Text(instanceLabel)
+                            .font(.system(size: 8, weight: .medium))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.secondary.opacity(0.15))
+                            .foregroundColor(.secondary)
+                            .cornerRadius(3)
+                    }
+                }
                 
                 // Port mapping info
                 HStack(spacing: 2) {

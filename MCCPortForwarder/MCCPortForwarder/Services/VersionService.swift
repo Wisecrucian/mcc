@@ -13,8 +13,8 @@ final class VersionService {
     /// Get application version from build.number file
     func getVersion() -> String {
         // Try to read from bundle resource first
-        if let versionPath = Bundle.main.path(forResource: "build", ofType: "number"),
-           let version = try? String(contentsOfFile: versionPath, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+        if let versionURL = Bundle.main.url(forResource: "build", withExtension: "number"),
+           let version = try? String(contentsOf: versionURL, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
            !version.isEmpty {
             return version
         }

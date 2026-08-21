@@ -379,7 +379,7 @@ final class ProcessService: ObservableObject {
         
         // Try to extract PATH from shell configs
         for configFile in configFiles {
-            if let content = try? String(contentsOfFile: configFile, encoding: .utf8) {
+            if let content = try? String(contentsOf: URL(fileURLWithPath: configFile), encoding: .utf8) {
                 let lines = content.components(separatedBy: .newlines)
                 for line in lines {
                     let trimmed = line.trimmingCharacters(in: .whitespaces)

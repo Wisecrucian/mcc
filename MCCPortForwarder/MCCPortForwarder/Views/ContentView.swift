@@ -773,7 +773,7 @@ struct ContentView: View {
 
 // MARK: - Helper Types
 
-extension UUID: Identifiable {
+extension UUID: @retroactive Identifiable {
     public var id: UUID { self }
 }
 

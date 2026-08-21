@@ -42,9 +42,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             popover.performClose(nil)
         } else {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            
-            // Activate app to receive keyboard events
-            NSApplication.shared.activate(ignoringOtherApps: true)
+
+            // Activate app to receive keyboard events.
+            // `activate(ignoringOtherApps:)` is deprecated since macOS 14 in favor of the
+            // parameterless activate(); keep the old call for macOS 13 support.
+            if #available(macOS 14.0, *) {
+                NSApplication.shared.activate()
+            } else {
+                NSApplication.shared.activate(ignoringOtherApps: true)
+            }
         }
     }
     

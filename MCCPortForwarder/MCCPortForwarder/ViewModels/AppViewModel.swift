@@ -734,13 +734,17 @@ final class AppViewModel: ObservableObject {
         
         // Find the specific port mapping process ID for logging
         let processId = host.processId(for: portMapping)
-        
+
+        // Capture the (Sendable, stateless) service locally: reaching through `self.portKillerService`
+        // from a background closure would touch a main-actor-isolated property off the main actor.
+        let portKiller = portKillerService
+
         // Run on background thread to avoid blocking UI
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            
+
             // Check if port is in use
-            guard let processInfo = self.portKillerService.findProcessOnPort(port) else {
+            guard let processInfo = portKiller.findProcessOnPort(port) else {
                 DispatchQueue.main.async {
                     self.appLogService.warning("No process found on port \(port)", details: "Host: \(host.name)")
                 }
@@ -761,7 +765,7 @@ final class AppViewModel: ObservableObject {
             }
             
             // Try graceful kill first (on background thread)
-            let result = self.portKillerService.killProcessOnPort(port, force: false)
+            let result = portKiller.killProcessOnPort(port, force: false)
             
             DispatchQueue.main.async {
                 if result.success {
@@ -787,8 +791,8 @@ final class AppViewModel: ObservableObject {
                     
                     // Offer force kill after delay
                     DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 2.0) {
-                        if self.portKillerService.isPortInUse(port) {
-                            let forceResult = self.portKillerService.killProcessOnPort(port, force: true)
+                        if portKiller.isPortInUse(port) {
+                            let forceResult = portKiller.killProcessOnPort(port, force: true)
                             DispatchQueue.main.async {
                                 if forceResult.success {
                                     self.appLogService.warning("Force killed process on port \(port)", details: forceResult.message)
@@ -898,10 +902,13 @@ final class AppViewModel: ObservableObject {
     
     // Async version for login (doesn't wait for completion, allows browser redirect)
     private func runAuthCommandAsync(_ command: String) async throws {
+        // Resolve on the main actor before hopping to the background queue below —
+        // getShellPATH() is main-actor-isolated and can't be called from that closure.
+        let shellPath = getShellPATH()
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 let process = Process()
-                
+
                 // Parse command
                 let parts = command.split(separator: " ").map(String.init)
                 guard let executable = parts.first else {
@@ -912,13 +919,13 @@ final class AppViewModel: ObservableObject {
                     ))
                     return
                 }
-                
+
                 process.executableURL = URL(fileURLWithPath: executable)
                 process.arguments = Array(parts.dropFirst())
-                
+
                 // Set environment
                 var environment = Foundation.ProcessInfo.processInfo.environment
-                if let shellPath = self.getShellPATH() {
+                if let shellPath {
                     environment["PATH"] = shellPath
                 }
                 process.environment = environment
@@ -940,23 +947,26 @@ final class AppViewModel: ObservableObject {
     }
     
     private func runAuthCommand(_ command: String) async throws -> (success: Bool, output: String) {
+        // Resolve on the main actor before hopping to the background queue below —
+        // getShellPATH() is main-actor-isolated and can't be called from that closure.
+        let shellPath = getShellPATH()
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 let process = Process()
-                
+
                 // Parse command
                 let parts = command.split(separator: " ").map(String.init)
                 guard let executable = parts.first else {
                     continuation.resume(returning: (false, "Invalid command"))
                     return
                 }
-                
+
                 process.executableURL = URL(fileURLWithPath: executable)
                 process.arguments = Array(parts.dropFirst())
-                
+
                 // Set environment
                 var environment = Foundation.ProcessInfo.processInfo.environment
-                if let shellPath = self.getShellPATH() {
+                if let shellPath {
                     environment["PATH"] = shellPath
                 }
                 process.environment = environment
@@ -1004,7 +1014,7 @@ final class AppViewModel: ObservableObject {
         ]
         
         for configFile in configFiles {
-            if let content = try? String(contentsOfFile: configFile, encoding: .utf8) {
+            if let content = try? String(contentsOf: URL(fileURLWithPath: configFile), encoding: .utf8) {
                 let lines = content.components(separatedBy: .newlines)
                 for line in lines {
                     if line.contains("export PATH=") || line.hasPrefix("PATH=") {

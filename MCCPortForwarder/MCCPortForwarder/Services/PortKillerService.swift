@@ -11,7 +11,8 @@ struct PortProcessInfo {
     let port: Int
 }
 
-final class PortKillerService {
+// Stateless: every method shells out to `lsof`/`kill` independently, nothing shared to race on.
+final class PortKillerService: Sendable {
     
     // Find process using a specific port
     func findProcessOnPort(_ port: Int) -> PortProcessInfo? {

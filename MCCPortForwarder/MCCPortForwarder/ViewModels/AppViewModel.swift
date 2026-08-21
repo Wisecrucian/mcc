@@ -15,6 +15,8 @@ final class AppViewModel: ObservableObject {
     
     @Published var services: [Service] = []
     @Published var hostStates: [UUID: ProcessState] = [:]
+    @Published var locationVersions: [UUID: String] = [:]     // LocationMapping.id -> version string
+    @Published var locationVersionErrors: [UUID: String] = [:] // LocationMapping.id -> last lookup error
     @Published var showingLogViewer = false
     @Published var selectedHostForLogs: UUID?
     @Published var selectedLogName: String?
@@ -31,6 +33,7 @@ final class AppViewModel: ObservableObject {
     let settingsService = SettingsService()
     let appLogService = AppLogService()
     private let portKillerService = PortKillerService()
+    private let versionLookupService = VersionLookupService()
     
     // MARK: - State Tracking
     
@@ -178,9 +181,11 @@ final class AppViewModel: ObservableObject {
         let newHost = Host(name: name, hostnameTemplate: hostnameTemplate, remotePort: remotePort, locations: locations)
         addHostWithLocationsRecursive(to: serviceId, host: newHost, in: &services)
         saveServices()
-        
+
         // Log action
         appLogService.log("Added host '\(name)' with \(locations.count) datacenter(s)", level: .info)
+
+        refreshVersions(for: locations)
     }
     
     // Legacy method for old-style hosts
@@ -282,8 +287,12 @@ final class AppViewModel: ObservableObject {
         
         updateHostWithLocationsRecursive(updatedHost, in: serviceId, in: &services)
         saveServices()
-        
+
         appLogService.log("Updated host '\(name)' with \(locations.count) datacenter(s)", level: .info)
+
+        // Only look up versions we don't already have — editing shouldn't re-query instances
+        // that were already resolved.
+        refreshVersions(for: locations.filter { locationVersions[$0.id] == nil })
     }
     
     private func updateHostWithLocationsRecursive(_ host: Host, in serviceId: UUID, in services: inout [Service]) {
@@ -822,7 +831,38 @@ final class AppViewModel: ObservableObject {
         }
         return nil
     }
-    
+
+    // MARK: - Instance Version Lookup
+
+    private func refreshVersions(for locations: [LocationMapping]) {
+        guard settingsService.isVersionLookupEnabled() else { return }
+        for location in locations where location.sourceInstanceName != nil {
+            refreshVersion(for: location)
+        }
+    }
+
+    // Manual (button) or automatic (on add) trigger — both go through here.
+    func refreshVersion(for location: LocationMapping) {
+        guard let instanceName = location.sourceInstanceName else { return }
+
+        locationVersionErrors[location.id] = nil
+        let command = settingsService.getCommand()
+
+        versionLookupService.fetchInstanceVersion(instanceName: instanceName, mccCommand: command) { [weak self] result in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                switch result {
+                case .success(let version):
+                    self.locationVersions[location.id] = version
+                    self.appLogService.info("Resolved version for '\(instanceName)'", details: version)
+                case .failure(let error):
+                    self.locationVersionErrors[location.id] = error.localizedDescription
+                    self.appLogService.warning("Version lookup failed for '\(instanceName)'", details: error.localizedDescription)
+                }
+            }
+        }
+    }
+
     // MARK: - Authentication
     
     func login() {
@@ -994,61 +1034,7 @@ final class AppViewModel: ObservableObject {
     }
     
     private func getShellPATH() -> String? {
-        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
-        
-        let configFiles = [
-            "\(homeDir)/.zshrc",
-            "\(homeDir)/.zprofile",
-            "\(homeDir)/.bash_profile",
-            "\(homeDir)/.bashrc"
-        ]
-        
-        var pathComponents: Set<String> = [
-            "/usr/local/bin",
-            "/usr/bin",
-            "/bin",
-            "/usr/sbin",
-            "/sbin",
-            "/opt/homebrew/bin",
-            "/opt/homebrew/sbin"
-        ]
-        
-        for configFile in configFiles {
-            if let content = try? String(contentsOf: URL(fileURLWithPath: configFile), encoding: .utf8) {
-                let lines = content.components(separatedBy: .newlines)
-                for line in lines {
-                    if line.contains("export PATH=") || line.hasPrefix("PATH=") {
-                        if let range = line.range(of: "=") {
-                            let pathValue = String(line[range.upperBound...])
-                                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-                            let paths = pathValue.components(separatedBy: ":")
-                            for path in paths {
-                                let cleaned = path
-                                    .replacingOccurrences(of: "$PATH", with: "")
-                                    .replacingOccurrences(of: "${PATH}", with: "")
-                                    .replacingOccurrences(of: "$HOME", with: homeDir)
-                                    .replacingOccurrences(of: "${HOME}", with: homeDir)
-                                    .trimmingCharacters(in: .whitespaces)
-                                if !cleaned.isEmpty && cleaned != "/" {
-                                    pathComponents.insert(cleaned)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        if let systemPath = Foundation.ProcessInfo.processInfo.environment["PATH"] {
-            pathComponents.formUnion(systemPath.components(separatedBy: ":"))
-        }
-        
-        let validPaths = pathComponents.filter { path in
-            var isDirectory: ObjCBool = false
-            return FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
-        }
-        
-        return validPaths.joined(separator: ":")
+        ShellEnvironment.resolvedPATH()
     }
     
     // MARK: - Configuration Import/Export

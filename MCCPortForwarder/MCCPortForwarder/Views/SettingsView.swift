@@ -17,6 +17,7 @@ struct SettingsView: View {
     @State private var retryAttempts: String = "3"
     @State private var retryDelay: String = "5"
     @State private var newDatacenter: String = ""
+    @State private var versionLookupEnabled: Bool = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -232,6 +233,15 @@ struct SettingsView: View {
                         }
                     }
                     
+                    // Instance Version Lookup
+                    settingsSection(
+                        title: "Instance Version Lookup",
+                        description: "Show the deployed version next to instances that were added by pasting a real instance name. Runs `mcc tool_status -t instance <name>` when a host/instance is added, and on demand via the refresh button."
+                    ) {
+                        Toggle("Enable Version Lookup", isOn: $versionLookupEnabled)
+                            .toggleStyle(.switch)
+                    }
+
                     // About Section
                     settingsSection(
                         title: "About",
@@ -368,6 +378,7 @@ struct SettingsView: View {
         retryEnabled = service.isRetryEnabled()
         retryAttempts = String(service.getRetryAttempts())
         retryDelay = String(service.getRetryDelay())
+        versionLookupEnabled = service.isVersionLookupEnabled()
     }
     
     private func saveSettings() {
@@ -383,6 +394,7 @@ struct SettingsView: View {
         if let delay = Int(retryDelay) {
             service.saveRetryDelay(delay)
         }
+        service.setVersionLookupEnabled(versionLookupEnabled)
     }
 }
 

@@ -31,8 +31,11 @@ struct ContentView: View {
     @State private var hostRemotePort = ""
     @State private var selectedDatacenters: Set<String> = []
     @State private var datacenterPorts: [String: String] = [:] // datacenter -> base localPort
-    @State private var datacenterInstanceCounts: [String: Int] = [:] // datacenter -> instance count
+    @State private var datacenterInstanceNumbers: [String: [Int]] = [:] // datacenter -> real instance numbers (may be sparse)
+    @State private var datacenterSourceNames: [String: [Int: String]] = [:] // datacenter -> instance number -> raw pasted name
     @State private var startingPort = "9999"
+    @State private var pasteInstancesText = ""
+    @State private var pasteParseMessage = ""
     
     var body: some View {
         VStack(spacing: 0) {
@@ -158,6 +161,9 @@ struct ContentView: View {
             onShowLogsForPort: { processId, name in
                 viewModel.showLogs(for: processId, name: name)
             },
+            getLocationVersion: { location in viewModel.locationVersions[location.id] },
+            getLocationVersionError: { location in viewModel.locationVersionErrors[location.id] },
+            onRefreshVersion: { location in viewModel.refreshVersion(for: location) },
             renderChildService: { childService, childLevel in
                 AnyView(renderService(childService, level: childLevel))
             }
@@ -455,6 +461,11 @@ struct ContentView: View {
     @ViewBuilder
     private var datacenterSelectionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if !viewModel.settingsService.datacenters.isEmpty {
+                pasteInstancesSection
+                Divider()
+            }
+
             HStack {
                 Text("Select Datacenters")
                     .font(.system(size: 13, weight: .medium))
@@ -504,6 +515,69 @@ struct ContentView: View {
     }
 
     @ViewBuilder
+    private var pasteInstancesSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Paste instances (one per line, e.g. \"2.myservice.dc1\")")
+                .font(.system(size: 11, weight: .medium))
+
+            TextEditor(text: $pasteInstancesText)
+                .font(.system(size: 11, design: .monospaced))
+                .frame(height: 54)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.secondary.opacity(0.3))
+                )
+
+            HStack {
+                Button("Parse & Fill In") {
+                    parsePastedInstances()
+                }
+                .font(.system(size: 11))
+                .disabled(pasteInstancesText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                Spacer()
+
+                if !pasteParseMessage.isEmpty {
+                    Text(pasteParseMessage)
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+
+    private func parsePastedInstances() {
+        let parsed = InstanceNameParser.parseLines(pasteInstancesText, knownDatacenters: viewModel.settingsService.datacenters)
+
+        guard !parsed.isEmpty else {
+            pasteParseMessage = "No matching instances found — check the datacenter list in Settings."
+            return
+        }
+
+        for item in parsed {
+            selectedDatacenters.insert(item.datacenter)
+
+            var numbers = Set(datacenterInstanceNumbers[item.datacenter] ?? [])
+            // Drop the placeholder "instance 1" that a bare checkbox-toggle would have set,
+            // once we have a real parsed instance to replace it with.
+            if numbers == [1], datacenterSourceNames[item.datacenter]?[1] == nil {
+                numbers = []
+            }
+            numbers.insert(item.instanceNumber)
+            datacenterInstanceNumbers[item.datacenter] = numbers.sorted()
+            datacenterSourceNames[item.datacenter, default: [:]][item.instanceNumber] = item.raw
+
+            if datacenterPorts[item.datacenter] == nil {
+                datacenterPorts[item.datacenter] = "\(nextAvailableBasePort())"
+            }
+        }
+
+        let datacenterCount = Set(parsed.map(\.datacenter)).count
+        pasteParseMessage = "Parsed \(parsed.count) instance(s) across \(datacenterCount) datacenter(s)."
+        pasteInstancesText = ""
+    }
+
+    @ViewBuilder
     private func datacenterRow(_ dc: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
@@ -513,8 +587,8 @@ struct ContentView: View {
                         if isSelected {
                             let basePort = nextAvailableBasePort()
                             selectedDatacenters.insert(dc)
-                            if datacenterInstanceCounts[dc] == nil {
-                                datacenterInstanceCounts[dc] = 1
+                            if datacenterInstanceNumbers[dc] == nil {
+                                datacenterInstanceNumbers[dc] = [1]
                             }
                             if datacenterPorts[dc] == nil {
                                 datacenterPorts[dc] = "\(basePort)"
@@ -522,7 +596,8 @@ struct ContentView: View {
                         } else {
                             selectedDatacenters.remove(dc)
                             datacenterPorts.removeValue(forKey: dc)
-                            datacenterInstanceCounts.removeValue(forKey: dc)
+                            datacenterInstanceNumbers.removeValue(forKey: dc)
+                            datacenterSourceNames.removeValue(forKey: dc)
                         }
                     }
                 )) {
@@ -551,12 +626,19 @@ struct ContentView: View {
                     .font(.system(size: 12, design: .monospaced))
 
                     Stepper(
-                        "×\(datacenterInstanceCounts[dc] ?? 1)",
-                        value: Binding(
-                            get: { datacenterInstanceCounts[dc] ?? 1 },
-                            set: { datacenterInstanceCounts[dc] = $0 }
-                        ),
-                        in: 1...9
+                        "×\(datacenterInstanceNumbers[dc]?.count ?? 1)",
+                        onIncrement: {
+                            var numbers = datacenterInstanceNumbers[dc] ?? [1]
+                            numbers.append((numbers.max() ?? 0) + 1)
+                            datacenterInstanceNumbers[dc] = numbers
+                        },
+                        onDecrement: {
+                            var numbers = datacenterInstanceNumbers[dc] ?? [1]
+                            guard numbers.count > 1 else { return }
+                            let removed = numbers.removeLast()
+                            datacenterSourceNames[dc]?.removeValue(forKey: removed)
+                            datacenterInstanceNumbers[dc] = numbers
+                        }
                     )
                     .font(.system(size: 11))
                     .fixedSize()
@@ -564,9 +646,10 @@ struct ContentView: View {
             }
 
             if selectedDatacenters.contains(dc),
-               let count = datacenterInstanceCounts[dc], count > 1,
+               let numbers = datacenterInstanceNumbers[dc], numbers.count > 1,
                let basePort = Int(datacenterPorts[dc] ?? "") {
-                Text("Instances → " + (0..<count).map { "\(basePort + $0)" }.joined(separator: ", "))
+                let sorted = numbers.sorted()
+                Text("Instances → " + sorted.enumerated().map { offset, num in "#\(num)=\(basePort + offset)" }.joined(separator: ", "))
                     .font(.system(size: 9))
                     .foregroundColor(.secondary)
                     .padding(.leading, 20)
@@ -577,7 +660,7 @@ struct ContentView: View {
     // Next free base port, packed after all currently-selected datacenters' instances
     private func nextAvailableBasePort() -> Int {
         let base = Int(startingPort) ?? 9999
-        let used = selectedDatacenters.reduce(0) { $0 + (datacenterInstanceCounts[$1] ?? 1) }
+        let used = selectedDatacenters.reduce(0) { $0 + (datacenterInstanceNumbers[$1]?.count ?? 1) }
         return base + used
     }
 
@@ -587,7 +670,7 @@ struct ContentView: View {
         var cursor = base
         for dc in selectedDatacenters.sorted() {
             datacenterPorts[dc] = "\(cursor)"
-            cursor += datacenterInstanceCounts[dc] ?? 1
+            cursor += datacenterInstanceNumbers[dc]?.count ?? 1
         }
     }
     
@@ -597,13 +680,14 @@ struct ContentView: View {
               let remotePort = Int(hostRemotePort),
               !selectedDatacenters.isEmpty else { return }
         
-        // Create locations from selected datacenters, expanding each into its instance count
+        // Create locations from selected datacenters, expanding each into its instance numbers
         var locations: [LocationMapping] = []
         for dc in selectedDatacenters.sorted() {
             if let portStr = datacenterPorts[dc], let basePort = Int(portStr) {
-                let count = max(1, datacenterInstanceCounts[dc] ?? 1)
-                for i in 0..<count {
-                    locations.append(LocationMapping(datacenter: dc, instance: i + 1, localPort: basePort + i))
+                let numbers = (datacenterInstanceNumbers[dc] ?? [1]).sorted()
+                for (offset, num) in numbers.enumerated() {
+                    let sourceName = datacenterSourceNames[dc]?[num]
+                    locations.append(LocationMapping(datacenter: dc, instance: num, localPort: basePort + offset, sourceInstanceName: sourceName))
                 }
             }
         }
@@ -635,8 +719,11 @@ struct ContentView: View {
         hostRemotePort = ""
         selectedDatacenters = []
         datacenterPorts = [:]
-        datacenterInstanceCounts = [:]
+        datacenterInstanceNumbers = [:]
+        datacenterSourceNames = [:]
         startingPort = "9999"
+        pasteInstancesText = ""
+        pasteParseMessage = ""
     }
     
     // MARK: - Edit Host Sheet
@@ -717,17 +804,21 @@ struct ContentView: View {
         selectedDatacenters = Set(host.locations.map { $0.datacenter })
 
         var ports: [String: String] = [:]
-        var counts: [String: Int] = [:]
+        var numbers: [String: [Int]] = [:]
+        var sourceNames: [String: [Int: String]] = [:]
         for dc in selectedDatacenters {
-            let group = host.locations.filter { $0.datacenter == dc }
-            counts[dc] = group.count
-            let basePort = group.first(where: { $0.instance == 1 })?.localPort
-                ?? group.map(\.localPort).min()
-                ?? 9999
-            ports[dc] = "\(basePort)"
+            let group = host.locations.filter { $0.datacenter == dc }.sorted { $0.instance < $1.instance }
+            numbers[dc] = group.map(\.instance)
+            for location in group {
+                if let name = location.sourceInstanceName {
+                    sourceNames[dc, default: [:]][location.instance] = name
+                }
+            }
+            ports[dc] = "\(group.first?.localPort ?? 9999)"
         }
         datacenterPorts = ports
-        datacenterInstanceCounts = counts
+        datacenterInstanceNumbers = numbers
+        datacenterSourceNames = sourceNames
 
         // Set starting port to the lowest assigned port, or default
         if let minPort = host.locations.map({ $0.localPort }).min() {
@@ -743,13 +834,14 @@ struct ContentView: View {
               let remotePort = Int(hostRemotePort),
               !selectedDatacenters.isEmpty else { return }
         
-        // Create locations from selected datacenters, expanding each into its instance count
+        // Create locations from selected datacenters, expanding each into its instance numbers
         var locations: [LocationMapping] = []
         for dc in selectedDatacenters.sorted() {
             if let portStr = datacenterPorts[dc], let basePort = Int(portStr) {
-                let count = max(1, datacenterInstanceCounts[dc] ?? 1)
-                for i in 0..<count {
-                    locations.append(LocationMapping(datacenter: dc, instance: i + 1, localPort: basePort + i))
+                let numbers = (datacenterInstanceNumbers[dc] ?? [1]).sorted()
+                for (offset, num) in numbers.enumerated() {
+                    let sourceName = datacenterSourceNames[dc]?[num]
+                    locations.append(LocationMapping(datacenter: dc, instance: num, localPort: basePort + offset, sourceInstanceName: sourceName))
                 }
             }
         }

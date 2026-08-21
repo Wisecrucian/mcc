@@ -28,6 +28,9 @@ struct ServiceRowView: View {
     let getPortState: (Host, PortMapping) -> ProcessState
     let onTogglePort: (Host, PortMapping) -> Void
     let onShowLogsForPort: (UUID, String) -> Void
+    let getLocationVersion: (LocationMapping) -> String?
+    let getLocationVersionError: (LocationMapping) -> String?
+    let onRefreshVersion: (LocationMapping) -> Void
     let renderChildService: (Service, Int) -> AnyView
 
     var body: some View {
@@ -121,7 +124,10 @@ struct ServiceRowView: View {
                             onTogglePort: { port in
                                 onTogglePort(host, port)
                             },
-                            onShowLogs: onShowLogsForPort
+                            onShowLogs: onShowLogsForPort,
+                            getLocationVersion: getLocationVersion,
+                            getLocationVersionError: getLocationVersionError,
+                            onRefreshVersion: onRefreshVersion
                         )
                     }
 

@@ -18,6 +18,7 @@ final class SettingsService: ObservableObject {
     private let retryAttemptsKey = "com.mcc.portforwarder.retryAttempts"
     private let retryDelayKey = "com.mcc.portforwarder.retryDelay"
     private let datacentersKey = "com.mcc.portforwarder.datacenters"
+    private let versionLookupEnabledKey = "com.mcc.portforwarder.versionLookupEnabled"
     
     // Defaults
     private let defaultCommand = "/usr/local/bin/mcc tp-port-forward"
@@ -145,8 +146,19 @@ final class SettingsService: ObservableObject {
         saveDatacenters()
     }
     
+    // MARK: - Instance Version Lookup
+
+    // Off by default: it shells out to `mcc` for every instance, opt-in until proven reliable.
+    func isVersionLookupEnabled() -> Bool {
+        defaults.bool(forKey: versionLookupEnabledKey)
+    }
+
+    func setVersionLookupEnabled(_ enabled: Bool) {
+        defaults.set(enabled, forKey: versionLookupEnabledKey)
+    }
+
     // MARK: - Reset All
-    
+
     func resetAll() {
         defaults.removeObject(forKey: commandKey)
         defaults.removeObject(forKey: loginCommandKey)
@@ -155,6 +167,7 @@ final class SettingsService: ObservableObject {
         defaults.removeObject(forKey: retryAttemptsKey)
         defaults.removeObject(forKey: retryDelayKey)
         defaults.removeObject(forKey: datacentersKey)
+        defaults.removeObject(forKey: versionLookupEnabledKey)
         loadDatacenters()
     }
 }

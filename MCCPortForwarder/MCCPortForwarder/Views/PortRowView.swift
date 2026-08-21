@@ -13,7 +13,13 @@ struct PortRowView: View {
     let onToggle: () -> Void
     let onLogs: () -> Void
     let onKillPort: (() -> Void)?
-    
+
+    // Version lookup (mcc tool_status) — nil when this location wasn't parsed from a real
+    // pasted instance name, so there's nothing to look up.
+    let version: String?
+    let versionError: String?
+    let onRefreshVersion: (() -> Void)?
+
     // New structure: toPort == localPort, so we can map this port to a specific location.
     private var matchedLocation: LocationMapping? {
         guard host.usesNewStructure else { return nil }
@@ -27,6 +33,12 @@ struct PortRowView: View {
 
     private var instanceLabel: String? {
         matchedLocation.flatMap(host.instanceLabel(for:))
+    }
+
+    private var versionBadgeColor: Color {
+        if version != nil { return .green }
+        if versionError != nil { return .red }
+        return .secondary
     }
     
     var body: some View {
@@ -52,6 +64,24 @@ struct PortRowView: View {
                             .background(Color.secondary.opacity(0.15))
                             .foregroundColor(.secondary)
                             .cornerRadius(3)
+                    }
+
+                    if let onRefreshVersion {
+                        Button(action: onRefreshVersion) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 7))
+                                Text(version ?? (versionError != nil ? "error" : "version?"))
+                            }
+                            .font(.system(size: 8, weight: .medium))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(versionBadgeColor.opacity(0.15))
+                            .foregroundColor(versionBadgeColor)
+                            .cornerRadius(3)
+                        }
+                        .buttonStyle(.plain)
+                        .help(versionError ?? "Refresh version (mcc tool_status)")
                     }
                 }
                 

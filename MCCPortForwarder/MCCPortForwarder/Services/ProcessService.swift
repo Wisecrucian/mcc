@@ -351,80 +351,11 @@ final class ProcessService: ObservableObject {
     }
     
     // MARK: - Environment Setup
-    
+
     private func getShellPATH() -> String? {
-        // Try to get PATH from user's shell configuration
-        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
-        
-        // Try common shell configs
-        let configFiles = [
-            "\(homeDir)/.zshrc",
-            "\(homeDir)/.zprofile",
-            "\(homeDir)/.bash_profile",
-            "\(homeDir)/.bashrc",
-            "\(homeDir)/.profile"
-        ]
-        
-        // Common paths to include
-        var pathComponents: Set<String> = [
-            "/usr/local/bin",
-            "/usr/bin",
-            "/bin",
-            "/usr/sbin",
-            "/sbin",
-            "/opt/homebrew/bin",
-            "/opt/homebrew/sbin",
-            "\(homeDir)/.local/bin"
-        ]
-        
-        // Try to extract PATH from shell configs
-        for configFile in configFiles {
-            if let content = try? String(contentsOf: URL(fileURLWithPath: configFile), encoding: .utf8) {
-                let lines = content.components(separatedBy: .newlines)
-                for line in lines {
-                    let trimmed = line.trimmingCharacters(in: .whitespaces)
-                    // Look for PATH exports
-                    if trimmed.hasPrefix("export PATH=") || trimmed.hasPrefix("PATH=") {
-                        // Extract paths from the line
-                        if let range = trimmed.range(of: "=") {
-                            let pathValue = String(trimmed[range.upperBound...])
-                                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-                            
-                            // Parse PATH components
-                            let paths = pathValue.components(separatedBy: ":")
-                            for path in paths {
-                                let cleaned = path
-                                    .replacingOccurrences(of: "$PATH", with: "")
-                                    .replacingOccurrences(of: "${PATH}", with: "")
-                                    .replacingOccurrences(of: "$HOME", with: homeDir)
-                                    .replacingOccurrences(of: "${HOME}", with: homeDir)
-                                    .trimmingCharacters(in: .whitespaces)
-                                
-                                if !cleaned.isEmpty && cleaned != "/" {
-                                    pathComponents.insert(cleaned)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Also check current system PATH
-        if let systemPath = Foundation.ProcessInfo.processInfo.environment["PATH"] {
-            let systemPaths = systemPath.components(separatedBy: ":")
-            pathComponents.formUnion(systemPaths)
-        }
-        
-        // Build final PATH, filtering out non-existent directories
-        let validPaths = pathComponents.filter { path in
-            var isDirectory: ObjCBool = false
-            return FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
-        }
-        
-        return validPaths.joined(separator: ":")
+        ShellEnvironment.resolvedPATH()
     }
-    
+
     // MARK: - Retry Logic
     
     private func monitorAndRetry(

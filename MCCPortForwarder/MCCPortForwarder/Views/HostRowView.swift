@@ -19,6 +19,9 @@ struct HostRowView: View {
     let getPortState: (PortMapping) -> ProcessState
     let onTogglePort: (PortMapping) -> Void
     let onShowLogs: (UUID, String) -> Void
+    let getLocationVersion: (LocationMapping) -> String?
+    let getLocationVersionError: (LocationMapping) -> String?
+    let onRefreshVersion: (LocationMapping) -> Void
     
     @State private var isExpanded = false
     @State private var expandedDatacenters: Set<String> = []
@@ -238,6 +241,8 @@ struct HostRowView: View {
         let resolvedPortHostname = matchedLocation.map(host.resolvedHostname(for:)) ?? host.compatibleHostname
         let instanceSuffix = matchedLocation.flatMap(host.instanceLabel(for:)).map { " · \($0)" } ?? ""
         let portName = "\(resolvedPortHostname)\(instanceSuffix) - Port \(String(port.fromPort))→\(String(port.toPort))"
+        // Only locations that came from a pasted instance name can be looked up.
+        let lookupableLocation = matchedLocation?.sourceInstanceName != nil ? matchedLocation : nil
         PortRowView(
             host: host,
             port: port,
@@ -248,7 +253,10 @@ struct HostRowView: View {
             },
             onKillPort: onKillPort != nil ? {
                 portToKill = port
-            } : nil
+            } : nil,
+            version: lookupableLocation.flatMap(getLocationVersion),
+            versionError: lookupableLocation.flatMap(getLocationVersionError),
+            onRefreshVersion: lookupableLocation.map { location in { onRefreshVersion(location) } }
         )
     }
 

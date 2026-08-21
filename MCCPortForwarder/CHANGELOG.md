@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2026-08-21
+
+### Added
+- **Paste-to-parse instances**: in Add/Edit Host, paste one or more real instance identifiers
+  (e.g. `2.myservice.dc1`) and hit Parse — the leading number becomes the instance number, and
+  whichever segment matches a configured datacenter fills in that datacenter, its instance
+  list, and its local ports automatically.
+- **Instance version lookup**: locations added by pasting a real instance name get a version
+  badge next to their port row, fetched via `mcc tool_status -t instance <name>` (once on add,
+  or manually by tapping the badge). Off by default — enable it in Settings ("Instance Version
+  Lookup").
+
 ## [1.1.0] - 2026-08-21
 
 ### Added

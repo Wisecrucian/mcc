@@ -19,6 +19,7 @@ Native macOS status bar utility that manages multiple port-forward connections t
 **Key Features**:
 - 🎯 Status bar only (no Dock icon)
 - 🔄 Multi-service, multi-host management
+- 🌍 Per-datacenter locations, each with its own instance count and local ports
 - ⚡ Real-time process state tracking
 - 💾 Automatic configuration persistence
 - 🛡️ Graceful process lifecycle management
@@ -257,11 +258,8 @@ Logger.process.error("Failed: \(error)")
 
 ## Known Limitations
 
-1. **Hardcoded Binary**: `/usr/local/bin/mcc` path
-2. **No Output Viewer**: Logs only in console
-3. **No Health Checks**: Can't verify connection liveness
-4. **No Auto-Reconnect**: Manual restart required
-5. **No Keyboard Shortcuts**: Mouse-only interaction
+1. **No Health Checks**: Can't actively probe connection liveness beyond parsing process output
+2. **No Keyboard Shortcuts**: Mouse-only interaction
 
 **Workarounds**: See [TROUBLESHOOTING.md](TROUBLESHOOTING.md#known-limitations)
 
@@ -309,7 +307,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 **Author**: Senior macOS Engineer  
 **Date**: 2026-01-23  
-**Version**: 1.0.0
+**Version**: 1.1.0 — see [CHANGELOG.md](CHANGELOG.md) for what changed
 
 Built with ❤️ using Swift, SwiftUI, and AppKit.
 

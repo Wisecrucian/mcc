@@ -21,9 +21,24 @@ struct HostRowView: View {
     let onShowLogs: (UUID, String) -> Void
     
     @State private var isExpanded = false
-    
+    @State private var expandedDatacenters: Set<String> = []
+
     private var isRunning: Bool {
         state.isActive || state == .ready
+    }
+
+    private struct DatacenterGroup {
+        let datacenter: String
+        let locations: [LocationMapping]
+    }
+
+    // Datacenters, each with its instances sorted — nil for legacy (non-datacenter) hosts.
+    private var groupedDatacenters: [DatacenterGroup]? {
+        guard host.usesNewStructure else { return nil }
+        let grouped = Dictionary(grouping: host.locations, by: \.datacenter)
+        return grouped.keys.sorted().map { dc in
+            DatacenterGroup(datacenter: dc, locations: grouped[dc]!.sorted { $0.instance < $1.instance })
+        }
     }
     
     var body: some View {
@@ -150,33 +165,104 @@ struct HostRowView: View {
     private var portsList: some View {
         if !host.compatiblePorts.isEmpty {
             VStack(spacing: 2) {
-                ForEach(host.compatiblePorts) { port in
-                    let processId = host.processId(for: port)
-                    let matchedLocation = host.usesNewStructure
-                        ? host.locations.first(where: { $0.localPort == port.toPort })
-                        : nil
-                    let resolvedPortHostname = matchedLocation.map(host.resolvedHostname(for:)) ?? host.compatibleHostname
-                    let instanceSuffix = matchedLocation.flatMap(host.instanceLabel(for:)).map { " · \($0)" } ?? ""
-                    let portName = "\(resolvedPortHostname)\(instanceSuffix) - Port \(String(port.fromPort))→\(String(port.toPort))"
-                    PortRowView(
-                        host: host,
-                        port: port,
-                        state: getPortState(port),
-                        onToggle: { onTogglePort(port) },
-                        onLogs: { 
-                            onShowLogs(processId, portName)
-                        },
-                        onKillPort: onKillPort != nil ? {
-                            portToKill = port
-                        } : nil
-                    )
+                if let groups = groupedDatacenters {
+                    ForEach(groups, id: \.datacenter) { group in
+                        datacenterGroupView(group)
+                    }
+                } else {
+                    ForEach(host.compatiblePorts) { port in
+                        portRow(for: port)
+                    }
                 }
             }
             .padding(.top, 4)
         }
     }
-    
-    private var statusColor: Color {
+
+    @ViewBuilder
+    private func datacenterGroupView(_ group: DatacenterGroup) -> some View {
+        let isGroupExpanded = expandedDatacenters.contains(group.datacenter)
+
+        VStack(spacing: 2) {
+            Button(action: {
+                if isGroupExpanded {
+                    expandedDatacenters.remove(group.datacenter)
+                } else {
+                    expandedDatacenters.insert(group.datacenter)
+                }
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: isGroupExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .frame(width: 10)
+
+                    Circle()
+                        .fill(color(for: aggregateState(for: group)))
+                        .frame(width: 7, height: 7)
+
+                    Text(group.datacenter)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+
+                    Text("(\(group.locations.count) instance\(group.locations.count == 1 ? "" : "s"))")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+                }
+                .padding(.vertical, 3)
+                .padding(.leading, 32)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isGroupExpanded {
+                VStack(spacing: 2) {
+                    ForEach(group.locations) { location in
+                        if let port = host.compatiblePorts.first(where: { $0.toPort == location.localPort }) {
+                            portRow(for: port)
+                        }
+                    }
+                }
+                .padding(.leading, 12)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func portRow(for port: PortMapping) -> some View {
+        let processId = host.processId(for: port)
+        let matchedLocation = host.usesNewStructure
+            ? host.locations.first(where: { $0.localPort == port.toPort })
+            : nil
+        let resolvedPortHostname = matchedLocation.map(host.resolvedHostname(for:)) ?? host.compatibleHostname
+        let instanceSuffix = matchedLocation.flatMap(host.instanceLabel(for:)).map { " · \($0)" } ?? ""
+        let portName = "\(resolvedPortHostname)\(instanceSuffix) - Port \(String(port.fromPort))→\(String(port.toPort))"
+        PortRowView(
+            host: host,
+            port: port,
+            state: getPortState(port),
+            onToggle: { onTogglePort(port) },
+            onLogs: {
+                onShowLogs(processId, portName)
+            },
+            onKillPort: onKillPort != nil ? {
+                portToKill = port
+            } : nil
+        )
+    }
+
+    // Worst-state rollup across a datacenter group's instances, same priority rule used for host/service aggregation.
+    private func aggregateState(for group: DatacenterGroup) -> ProcessState {
+        let states = group.locations.compactMap { location in
+            host.compatiblePorts.first(where: { $0.toPort == location.localPort }).map(getPortState)
+        }
+        return states.max(by: { $0.priority < $1.priority }) ?? .stopped
+    }
+
+    private var statusColor: Color { color(for: state) }
+
+    private func color(for state: ProcessState) -> Color {
         switch state {
         case .stopped:
             return .gray

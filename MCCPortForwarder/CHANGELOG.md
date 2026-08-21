@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-08-21
+
+### Added
+- **Per-datacenter instance count**: each selected datacenter can now fan out into multiple
+  instances, each with its own local port and hostname via a new `{instance}` placeholder
+  (alongside `{location}`) in the hostname template. Port rows show an "instance N" badge
+  when a datacenter has more than one.
+
+### Fixed
+- Retries no longer continue after pressing Stop while a connection is in its retry-delay
+  window (the manual-stop flag wasn't being recorded during that window, so the pending
+  retry silently reconnected anyway).
+- Replaced deprecated APIs (`NSApplication.activate(ignoringOtherApps:)`,
+  `String(contentsOfFile:encoding:)`) and resolved several Swift 6 strict-concurrency
+  errors, for compatibility with newer Xcode/macOS toolchains.
+
 ## [1.0.0] - 2026-02-11
 
 ### 🎉 Initial Release

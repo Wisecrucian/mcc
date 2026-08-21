@@ -18,8 +18,8 @@ targets:
     
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.mcc.portforwarder
-      MARKETING_VERSION: "1.0.3"
-      CURRENT_PROJECT_VERSION: "5"
+      MARKETING_VERSION: "1.1.0"
+      CURRENT_PROJECT_VERSION: "6"
       INFOPLIST_FILE: MCCPortForwarder/Info.plist
       SWIFT_VERSION: "5.9"
       MACOSX_DEPLOYMENT_TARGET: "13.0"

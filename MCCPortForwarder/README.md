@@ -1,53 +1,51 @@
 # MCC Port Forwarder
 
-A macOS menu bar app for running `mcc tp-port-forward` connections without juggling a pile of terminal tabs. Lives in the menu bar, no dock icon, no window until you click the icon.
+Приложение для macOS, живёт в строке меню — без окна и без иконки в доке, пока не кликнешь по нему. Держит под контролем сразу несколько `mcc tp-port-forward` подключений, чтобы не открывать кучу вкладок терминала.
 
-## Requirements
+## Как установить
 
-- macOS 13+
-- the `mcc` CLI installed (default path `/usr/local/bin/mcc`, changeable in Settings)
-- to build from source: Xcode 15+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
+1. Скачай `MCCPortForwarder-vX.Y.Z.zip` со страницы [Releases](https://github.com/Wisecrucian/mcc/releases).
+2. Распакуй архив, перетащи `MCCPortForwarder.app` в `Applications`.
+3. Запусти. Приложение не нотаризовано, поэтому macOS скорее всего скажет, что оно от неизвестного разработчика — правый клик по иконке → «Открыть» → подтвердить. Если не помогает, один раз в терминале: `xattr -cr /Applications/MCCPortForwarder.app`.
+4. На машине должен быть установлен сам `mcc` (обычно лежит в `/usr/local/bin/mcc`) — без него подключать нечего.
 
-## Build & run
+После запуска иконка появится в строке меню сверху — дальше просто кликаешь по ней.
+
+## Как это устроено
+
+- **Сервисы** — просто группировка, можно вкладывать друг в друга (например, "Production" → "База данных").
+- **Хосты** — лежат внутри сервиса. У хоста есть имя, шаблон хостнейма и удалённый порт.
+- Хост может смотреть сразу в несколько **датацентров** (список датацентров настраивается один раз в Settings). У каждого датацентра может быть больше одного **инстанса** — например, если за ним несколько реплик. У каждого инстанса свой локальный порт и свой хостнейм, который собирается подстановкой `{location}` и `{instance}` в шаблон.
+
+Пример: шаблон `db.{location}.internal`, удалённый порт `5432`, датацентр `dc1` с 2 инстансами — получаешь два независимых туннеля:
+```
+db.dc1.internal:5432 -p 9999    (инстанс 1)
+db.dc1.internal:5432 -p 10000   (инстанс 2)
+```
+
+## Как пользоваться
+
+1. Добавь сервис, внутри него — хост.
+2. Выбери, какие датацентры использует этот хост и сколько инстансов на каждый — порты подставятся автоматически, их можно поправить руками.
+3. Жми play на хосте или на всём сервисе. Каждый датацентр/инстанс — отдельный процесс со своим индикатором статуса и своими логами (иконка рядом открывает логи).
+4. Если локальный порт уже занят — приложение скажет об этом и предложит убить процесс, который его держит.
+5. Login/Logout внизу окна выполняют команды `mcc login` / `mcc logout` (тоже настраиваются в Settings).
+
+Всё сохраняется автоматически после каждого изменения. Import/Export в меню — чтобы сделать бэкап конфига или передать его коллеге.
+
+## Настройки
+
+- путь к бинарнику `mcc`, команды login/logout
+- авто-ретрай: сколько раз и с какой задержкой повторять попытку после обрыва связи
+- список датацентров, из которого выбираешь при добавлении хоста
+
+## Если нужно собрать из исходников
+
+Это уже для разработчиков — нужен Xcode 15+ и [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 
 ```bash
-make setup   # generates the .xcodeproj from project.yml (first time, or after project.yml changes)
-make run     # builds Debug and launches it
+make setup   # генерирует .xcodeproj из project.yml
+make run     # собирает Debug-версию и запускает
 ```
 
-`make build` + `make install` builds Release and copies it to `/Applications`.
-
-## How it's organized
-
-- **Services** are just a grouping, and can be nested (e.g. "Production" → "Database").
-- **Hosts** live inside a service. A host has a name, a hostname template, and a remote port.
-- A host can target several **datacenters** at once (the datacenter list itself is managed once in Settings). Each datacenter can have more than one **instance** — useful if there are several replicas behind it. Every instance gets its own local port, and its own hostname resolved from the template via `{location}` and `{instance}`.
-
-Example: template `db.{location}.internal`, remote port `5432`, datacenter `dc1` with 2 instances gives you two independent tunnels:
-```
-db.dc1.internal:5432 -p 9999    (instance 1)
-db.dc1.internal:5432 -p 10000   (instance 2)
-```
-
-## Using it day to day
-
-1. Add a service, add a host inside it.
-2. Pick which datacenters this host uses, and how many instances per datacenter — ports get auto-assigned, you can tweak them.
-3. Hit play on a host or a whole service. Each datacenter/instance runs as its own process with its own status dot and its own logs (click the log icon to see them).
-4. If a local port is already taken by something else, the app tells you and offers to kill the process holding it.
-5. Login/Logout at the bottom run the `mcc login` / `mcc logout` commands — also configurable in Settings.
-
-Everything is saved automatically after every change (`~/Library/Preferences/com.mcc.portforwarder.plist`). Use Import/Export to back up your config or hand it to a teammate.
-
-## Settings
-
-- path to the `mcc` binary, and the login/logout commands
-- auto-retry: attempts and delay before retrying a failed connection
-- the datacenter list used when adding/editing hosts
-
-## More docs
-
-- [QUICKSTART.md](QUICKSTART.md) — step-by-step walkthrough
-- [ARCHITECTURE.md](ARCHITECTURE.md) — how it's built, for anyone touching the code
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-- [CHANGELOG.md](CHANGELOG.md)
+Подробности — в [ARCHITECTURE.md](ARCHITECTURE.md), история изменений — в [CHANGELOG.md](CHANGELOG.md).

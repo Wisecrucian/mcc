@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.2.0] - 2026-08-21
+## [1.1.1] - 2026-08-21
 
 ### Added
 - **Paste-to-parse instances**: in Add/Edit Host, paste one or more real instance identifiers

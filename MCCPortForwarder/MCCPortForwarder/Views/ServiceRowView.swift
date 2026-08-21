@@ -34,16 +34,6 @@ struct ServiceRowView: View {
         VStack(alignment: .leading, spacing: 4) {
             // Service header
             HStack(spacing: 8) {
-                // Indentation
-                if level > 0 {
-                    ForEach(0..<level, id: \.self) { _ in
-                        Rectangle()
-                            .fill(Color.secondary.opacity(0.2))
-                            .frame(width: 2)
-                            .padding(.leading, 8)
-                    }
-                }
-
                 // Expand/collapse button
                 Button(action: { isExpanded.toggle() }) {
                     Image(systemName: "chevron.right")
@@ -101,7 +91,6 @@ struct ServiceRowView: View {
                 .buttonStyle(.plain)
                 .help("Delete service")
             }
-            .padding(.leading, 16 + CGFloat(level * 16))
 
             // Expanded content
             if isExpanded {
@@ -134,7 +123,6 @@ struct ServiceRowView: View {
                             },
                             onShowLogs: onShowLogsForPort
                         )
-                        .padding(.leading, CGFloat(level * 16))
                     }
 
                     // Child services (recursive)
@@ -164,11 +152,11 @@ struct ServiceRowView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(.leading, CGFloat((level + 1) * 16))
                     .padding(.top, 4)
                 }
             }
         }
+        .padding(.leading, 16 + CGFloat(level * 16))
         .padding(.vertical, 6)
     }
 

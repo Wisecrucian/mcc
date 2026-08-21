@@ -14,6 +14,17 @@ struct PortRowView: View {
     let onLogs: () -> Void
     let onKillPort: (() -> Void)?
     
+    private var resolvedHostname: String {
+        // New structure: toPort == localPort, so we can map this port to a specific location.
+        if host.usesNewStructure {
+            if let location = host.locations.first(where: { $0.localPort == port.toPort }) {
+                return host.resolvedHostname(for: location)
+            }
+        }
+        // Legacy: compatibleHostname is already a plain hostname (no {location} placeholder).
+        return host.compatibleHostname
+    }
+    
     var body: some View {
         HStack(spacing: 8) {
             // Status indicator
@@ -21,25 +32,33 @@ struct PortRowView: View {
                 .fill(statusColor)
                 .frame(width: 6, height: 6)
             
-            // Port mapping info
-            HStack(spacing: 2) {
-                Text(verbatim: String(port.fromPort))
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.primary)
-                
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 8))
+            VStack(alignment: .leading, spacing: 2) {
+                // Actual hostname substituted from {location} placeholder
+                Text(resolvedHostname)
+                    .font(.system(size: 9))
                     .foregroundColor(.secondary)
-                    .padding(.horizontal, 2)
+                    .lineLimit(1)
                 
-                Text(verbatim: String(port.toPort))
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.primary)
+                // Port mapping info
+                HStack(spacing: 2) {
+                    Text(verbatim: String(port.fromPort))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.primary)
+                    
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 8))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 2)
+                    
+                    Text(verbatim: String(port.toPort))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.primary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.blue.opacity(0.08))
+                .cornerRadius(6)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Color.blue.opacity(0.08))
-            .cornerRadius(6)
             
             Spacer()
             
@@ -81,7 +100,8 @@ struct PortRowView: View {
         }
         .padding(.vertical, 3)
         .padding(.horizontal, 12)
-        .padding(.leading, 24)
+        // Move port line right so it starts after the "catalog" (host header).
+        .padding(.leading, 40)
     }
     
     private var statusColor: Color {

@@ -45,7 +45,22 @@ final class AppViewModel: ObservableObject {
         loadServices()
         startStateTracking()
         setupLogCapture()
+        setupTerminationCleanup()
         appLogService.success("Application initialized successfully")
+    }
+
+    private func setupTerminationCleanup() {
+        // Ensure ports are released on app shutdown (not only on deinit).
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppWillTerminate),
+            name: NSApplication.willTerminateNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func handleAppWillTerminate() {
+        processService.stopAll()
     }
     
     private func setupLogCapture() {
@@ -86,6 +101,7 @@ final class AppViewModel: ObservableObject {
     }
     
     deinit {
+        NotificationCenter.default.removeObserver(self)
         stateTimer?.invalidate()
         processService.stopAll()
     }
